@@ -465,6 +465,7 @@
         .api-key-modal-buttons {
             display: flex;
             justify-content: flex-end;
+            gap: 10px; /* Add gap for buttons */
         }
         .api-key-modal-submit-button {
             background-color: #48bb78;
@@ -479,6 +480,20 @@
         }
         .api-key-modal-submit-button:hover {
             background-color: #38a169;
+        }
+        .api-key-modal-cancel-button { /* New style for API key cancel button */
+            background-color: #a0aec0;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            border: none;
+        }
+        .api-key-modal-cancel-button:hover {
+            background-color: #718096;
         }
 
 
@@ -606,6 +621,7 @@
             <div class="api-key-modal-input-area">
                 <input type="text" id="gemini-api-key-input" placeholder="您的 Gemini API 金鑰">
                 <div class="api-key-modal-buttons">
+                    <button id="api-key-modal-cancel-button" class="api-key-modal-cancel-button">取消</button> <!-- 新增 API Key 模態框的取消按鈕 -->
                     <button id="submit-api-key-button" class="api-key-modal-submit-button">確認</button>
                 </div>
             </div>
@@ -681,6 +697,7 @@
         const apiKeyModalOverlay = document.getElementById('api-key-modal-overlay');
         const geminiApiKeyInput = document.getElementById('gemini-api-key-input');
         const submitApiKeyButton = document.getElementById('submit-api-key-button');
+        const apiKeyModalCancelButton = document.getElementById('api-key-modal-cancel-button'); // 獲取 API Key 模態框的取消按鈕
 
         // Global variable to store Gemini API Key
         let geminiApiKey = ""; 
@@ -1002,13 +1019,19 @@
             geminiLoadingIndicator.style.display = 'none'; // 隱藏載入指示器
         });
 
-        // 新增取消按鈕的事件監聽器
+        // 新增 Gemini 提問模態框取消按鈕的事件監聽器
         geminiModalCancelButton.addEventListener('click', () => {
             geminiModalOverlay.style.display = 'none'; // 隱藏模態框
             geminiResponseArea.innerHTML = ''; // 清空回應內容
             geminiResponseArea.style.display = 'none'; // 隱藏回應區域
             geminiQuestionInput.value = ''; // 清空輸入框
             geminiLoadingIndicator.style.display = 'none'; // 隱藏載入指示器
+        });
+
+        // 新增 API Key 模態框取消按鈕的事件監聽器
+        apiKeyModalCancelButton.addEventListener('click', () => {
+            apiKeyModalOverlay.style.display = 'none'; // 隱藏 API Key 模態框
+            geminiApiKeyInput.value = ''; // 清空輸入框
         });
 
         // Handle API Key submission
