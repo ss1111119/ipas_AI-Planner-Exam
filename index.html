@@ -4,11 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI 應用規劃師能力測驗</title>
-    <!-- Firebase SDK CDN 連結 (已更新至 v8.10.0 以確保相容性) -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter 字體 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -526,14 +524,30 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+        // 修正：導入 onSnapshot
+        import { getFirestore, doc, getDoc, setDoc, collection, FieldValue, onSnapshot } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
         // Firebase 相關變數和初始化
         let app;
         let db;
         let auth;
-        // Canvas 環境提供的全域變數
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        
+        // 直接使用從 Firebase Console 複製的配置
+        const firebaseConfig = {
+          apiKey: "***REMOVED***",
+          authDomain: "ipas-ai-planner-exam.firebaseapp.com",
+          // databaseURL: "https://ipas-ai-planner-exam-default-rtdb.firebaseio.com", // 這是 Realtime Database 的 URL，Firestore 不需要
+          projectId: "ipas-ai-planner-exam",
+          storageBucket: "ipas-ai-planner-exam.firebasestorage.app",
+          messagingSenderId: "1018339017757",
+          appId: "1:1018339017757:web:934bf9c05ea898fdd972f4",
+          measurementId: "G-5WWRYNKFJ6"
+        };
+        const appId = firebaseConfig.appId; // 直接從配置中獲取 appId
 
         // 測驗應用程式相關變數
         let fullQuizData = []; // 儲存從 JSON 載入的所有題目
@@ -927,34 +941,31 @@ D) ${currentQuestionData.options[3]}
         // Firebase 初始化和人數統計邏輯
         async function initializeFirebase() {
             try {
-                // 檢查 Firebase SDK 是否已載入
-                // 這裡的檢查方式需要調整，因為 v8 的 SDK 載入方式不同
-                // 我們直接嘗試初始化，如果失敗會被 catch 捕獲
+                console.log("Initializing Firebase with config:", firebaseConfig); // 新增 log 輸出配置
                 
-                app = firebase.initializeApp(firebaseConfig);
-                db = firebase.firestore(app);
-                auth = firebase.auth(app);
-
-                // 匿名登入或使用自訂 token 登入
-                // 注意：__initial_auth_token 只有在 Canvas 預覽環境中提供
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await auth.signInWithCustomToken(__initial_auth_token); // 使用 auth 物件
-                } else {
-                    await auth.signInAnonymously(); // 使用 auth 物件
+                // 檢查關鍵配置屬性是否存在
+                if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId || !firebaseConfig.appId) {
+                    throw new Error("Firebase 配置不完整。請確保 apiKey, authDomain, projectId, 和 appId 都已提供。");
                 }
+
+                app = initializeApp(firebaseConfig); // 使用模組化 initializeApp
+                auth = getAuth(app); // 使用模組化 getAuth
+                db = getFirestore(app); // 使用模組化 getFirestore
+
+                // 在部署環境下，直接使用匿名登入
+                await signInAnonymously(auth); 
 
                 console.log("Firebase initialized and user authenticated.");
                 trackUserVisit(); // 登入後追蹤使用者訪問
                 setupRealtimeUserCountListener(); // 設定實時人數監聽
             } catch (error) {
                 console.error("Firebase 初始化或登入失敗:", error);
-                currentUserCount.textContent = '載入失敗';
-                // 移除原有的 SDK 檢查，因為它可能導致誤判
-                // if (typeof firebase === 'undefined' || typeof firebase.initializeApp !== 'function') {
-                //     console.error("Firebase SDK 未載入。請檢查 Firebase CDN 連結。");
-                //     currentUserCount.textContent = '載入失敗 (SDK)';
-                //     return;
-                // }
+                // 根據錯誤類型提供更明確的訊息
+                if (error.code === 'auth/configuration-not-found') {
+                    currentUserCount.textContent = `載入失敗: Firebase 設定錯誤。請確認您的 Firebase 專案配置 (apiKey, authDomain, projectId, appId) 是否正確，並已啟用 Authentication 服務中的「匿名」登入方式。`;
+                } else {
+                    currentUserCount.textContent = `載入失敗: ${error.message || '未知錯誤。'}`;
+                }
             }
         }
 
@@ -962,7 +973,7 @@ D) ${currentQuestionData.options[3]}
         async function trackUserVisit() {
             // 等待 auth 狀態就緒
             await new Promise(resolve => {
-                const unsubscribe = auth.onAuthStateChanged(user => {
+                const unsubscribe = onAuthStateChanged(auth, user => { // 使用模組化 onAuthStateChanged
                     if (user) {
                         unsubscribe(); // 取消監聽，避免重複執行
                         resolve();
@@ -977,14 +988,14 @@ D) ${currentQuestionData.options[3]}
             }
 
             // 使用公共數據路徑：/artifacts/{appId}/public/data/users_count/{userId}
-            const userDocRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('users_count').doc(userId);
+            const userDocRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'users_count'), userId); // 使用模組化 doc 和 collection
 
             try {
-                const docSnap = await userDocRef.get();
+                const docSnap = await getDoc(userDocRef); // 使用模組化 getDoc
                 if (!docSnap.exists) {
                     // 如果使用者是第一次訪問，則記錄下來
-                    await userDocRef.set({
-                        firstVisit: firebase.firestore.FieldValue.serverTimestamp(),
+                    await setDoc(userDocRef, { // 使用模組化 setDoc
+                        firstVisit: FieldValue.serverTimestamp(), // 使用模組化 FieldValue
                         userId: userId // 儲存 userId 方便查詢和顯示
                     });
                     console.log(`新使用者訪問記錄: ${userId}`);
@@ -998,9 +1009,9 @@ D) ${currentQuestionData.options[3]}
 
         // 實時監聽使用者總數
         function setupRealtimeUserCountListener() {
-            const usersCollectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('users_count');
+            const usersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'users_count'); // 使用模組化 collection
 
-            usersCollectionRef.onSnapshot((snapshot) => {
+            onSnapshot(usersCollectionRef, (snapshot) => { // 使用模組化 onSnapshot
                 const count = snapshot.size;
                 currentUserCount.textContent = count;
                 console.log(`目前參與人數已更新: ${count}`);
