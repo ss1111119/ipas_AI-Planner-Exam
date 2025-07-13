@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 應用規劃師能力測驗</title>
+    <!-- Firebase SDK CDN 連結 (已更新至 v8.10.0 以確保相容性) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .quiz-container {
+            background-color: #ffffff;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+            position: relative;
+            overflow: hidden; /* For background animation */
+        }
+        .quiz-container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 50% 50%, #e0f2fe, #ffffff);
+            animation: pulse 10s infinite alternate;
+            z-index: 0;
+            opacity: 0.3;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.3; }
+            100% { transform: scale(1.1); opacity: 0.5; }
+        }
+        .content-wrapper {
+            position: relative;
+            z-index: 1;
+        }
+        .loading-message {
+            font-size: 1.5rem;
+            color: #4a5568;
+            margin-top: 50px;
+        }
+        .subject-selection {
+            margin-bottom: 25px;
+            display: flex; /* 使用 flexbox 讓下拉選單和按鈕並排 */
+            flex-direction: column; /* 預設為垂直排列 */
+            align-items: center; /* 水平居中 */
+            gap: 20px; /* 間距 */
+        }
+        @media (min-width: 640px) { /* 在較大螢幕上改為水平排列 */
+            .subject-selection {
+                flex-direction: row;
+                justify-content: center;
+            }
+        }
+        .subject-selection select {
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 2px solid #cbd5e0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2d3748;
+            background-color: #f7fafc;
+            appearance: none; /* Remove default arrow */
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20fill%3D%22%234A5568%22%20d%3D%22M9.293%2012.95l.707.707L15.657%208l-1.414-1.414L10%2010.828%206.757%207.586%205.343%209z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1em;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+        .subject-selection select:focus {
+            outline: none;
+            border-color: #63b3ed;
+        }
+        .start-quiz-button {
+            background-color: #48bb78;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            border: none;
+            box-shadow: 0 4px 10px rgba(72, 187, 120, 0.3);
+        }
+        .start-quiz-button:hover:not(:disabled) {
+            background-color: #38a169;
+            transform: translateY(-2px);
+        }
+        .start-quiz-button:disabled {
+            background-color: #a0aec0;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .subject-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 20px;
+        }
+        .question-number {
+            font-size: 1.1rem;
+            color: #4a5568;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .question-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+        .option-button {
+            background-color: #edf2f7;
+            color: #4a5568;
+            padding: 15px 20px;
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .option-button:hover:not(.disabled):not(.correct):not(.incorrect) {
+            background-color: #e2e8f0;
+            border-color: #cbd5e0;
+        }
+        .option-button.selected {
+            border-color: #63b3ed;
+            background-color: #ebf8ff;
+            color: #2b6cb0;
+        }
+        .option-button.correct {
+            background-color: #d4edda; /* Light green */
+            border-color: #48bb78; /* Green */
+            color: #2f855a;
+        }
+        .option-button.incorrect {
+            background-color: #fde8e8; /* Light red */
+            border-color: #ef4444; /* Red */
+            color: #c53030;
+        }
+        .option-label {
+            font-weight: bold;
+            min-width: 25px; /* Ensure consistent alignment */
+            text-align: center;
+        }
+        .feedback-container {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: left;
+            background-color: #f7fafc;
+            border: 1px solid #e2e8f0;
+            display: none; /* Hidden by default */
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+        .feedback-container.show {
+            display: block;
+        }
+        .feedback-title {
+            font-weight: 700;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+        .feedback-text {
+            color: #4a5568;
+        }
+        .navigation-buttons {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .nav-button {
+            background-color: #4299e1;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            border: none;
+            box-shadow: 0 4px 10px rgba(66, 153, 225, 0.3);
+        }
+        .nav-button:hover:not(:disabled) {
+            background-color: #3182ce;
+            transform: translateY(-2px);
+        }
+        .nav-button:disabled {
+            background-color: #a0aec0;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .quiz-summary {
+            margin-top: 30px;
+            padding: 30px;
+            background-color: #e6fffa;
+            border-radius: 15px;
+            border: 2px solid #38b2ac;
+            color: #2d3748;
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: none; /* Hidden by default */
+        }
+        .quiz-summary.show {
+            display: block;
+        }
+        .summary-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 20px;
+        }
+        .summary-score {
+            font-size: 2.5rem;
+            color: #38b2ac;
+            font-weight: 800;
+            margin-bottom: 20px;
+        }
+        .summary-message {
+            font-size: 1.3rem;
+            color: #4a5568;
+            margin-bottom: 30px;
+        }
+        .restart-button {
+            background-color: #48bb78;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            border: none;
+            box-shadow: 0 4px 10px rgba(72, 187, 120, 0.3);
+        }
+        .restart-button:hover {
+            background-color: #38a169;
+            transform: translateY(-2px);
+        }
+        .incorrect-questions-summary {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px dashed #cbd5e0;
+        }
+        .incorrect-questions-summary .incorrect-question-item {
+            background-color: #fefcbf; /* Light yellow for incorrect questions */
+            border: 1px solid #f6e05e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .incorrect-questions-summary .question-text-incorrect {
+            font-weight: 700;
+            color: #8b5f00; /* Darker yellow text */
+            margin-bottom: 10px;
+        }
+        .incorrect-questions-summary .correct-answer-text {
+            font-weight: 600;
+            color: #2f855a; /* Green for correct answer */
+            margin-top: 5px;
+        }
+        .incorrect-questions-summary .explanation-text {
+            font-size: 0.95rem;
+            color: #6b46c1; /* Purple for explanation */
+            margin-top: 10px;
+        }
+
+        /* Gemini Modal Styles */
+        .gemini-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .gemini-modal-content {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            width: 90%;
+            position: relative;
+            text-align: left;
+        }
+        .gemini-modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 1.8rem;
+            cursor: pointer;
+            color: #a0aec0;
+            transition: color 0.2s ease;
+        }
+        .gemini-modal-close:hover {
+            color: #4a5568;
+        }
+        .gemini-modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 20px;
+        }
+        .gemini-modal-input-area textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            min-height: 80px;
+            resize: vertical;
+            margin-bottom: 15px;
+        }
+        .gemini-modal-input-area textarea:focus {
+            outline: none;
+            border-color: #63b3ed;
+        }
+        .gemini-modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .gemini-modal-submit-button {
+            background-color: #4299e1;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            border: none;
+        }
+        .gemini-modal-submit-button:hover {
+            background-color: #3182ce;
+        }
+        .gemini-modal-loading {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 1.1rem;
+            color: #4a5568;
+        }
+        .gemini-modal-response {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e6fffa;
+            border: 1px solid #38b2ac;
+            border-radius: 10px;
+            font-size: 1rem;
+            color: #2d3748;
+            white-space: pre-wrap; /* Preserve whitespace and line breaks */
+            max-height: 300px; /* Limit height */
+            overflow-y: auto; /* Add scroll if content overflows */
+        }
+        .ask-gemini-button {
+            background-color: #805ad5; /* Purple for Gemini feature */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            border: none;
+            box-shadow: 0 4px 10px rgba(128, 90, 213, 0.3);
+            margin-top: 20px; /* Space from feedback container */
+        }
+        .ask-gemini-button:hover {
+            background-color: #6b46c1;
+            transform: translateY(-2px);
+        }
+
+        /* User count display */
+        .user-count-display {
+            font-size: 0.9rem;
+            color: #718096;
+            margin-bottom: 15px;
+            text-align: right;
+        }
+
+        @media (max-width: 640px) {
+            .quiz-container {
+                padding: 20px;
+            }
+            .question-text {
+                font-size: 1.2rem;
+            }
+            .option-button {
+                font-size: 1rem;
+                padding: 12px 15px;
+            }
+            .nav-button {
+                padding: 10px 20px;
+                font-size: 1rem;
+            }
+            .summary-title {
+                font-size: 1.5rem;
+            }
+            .summary-score {
+                font-size: 2rem;
+            }
+            .summary-message {
+                font-size: 1.1rem;
+            }
+            .restart-button {
+                padding: 12px 25px;
+                font-size: 1.1rem;
+            }
+            .gemini-modal-content {
+                padding: 20px;
+            }
+            .gemini-modal-title {
+                font-size: 1.2rem;
+            }
+            .gemini-modal-input-area textarea {
+                min-height: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="quiz-container">
+        <div class="content-wrapper">
+            <!-- 人數統計顯示區塊 -->
+            <div id="user-count-display" class="user-count-display">
+                目前參與人數：<span id="current-user-count">載入中...</span>
+            </div>
+
+            <div id="initial-selection-screen">
+                <div class="subject-selection">
+                    <label for="subject-select" class="sr-only">選擇科目</label>
+                    <select id="subject-select">
+                        <option value="topic1_ai_intro.json">科目一：人工智慧基礎概論</option>
+                        <option value="topic2_generative_ai_app_planning.json">科目二：生成式 AI 應用與規劃</option>
+                    </select>
+                    <button id="start-quiz-button" class="start-quiz-button">開始測驗</button>
+                </div>
+            </div>
+
+            <div id="quiz-content" style="display: none;">
+                <div class="subject-title" id="current-subject-title"></div> <!-- 動態顯示科目標題 -->
+                <div class="question-number" id="question-number"></div>
+                <div class="question-text" id="question-text"></div>
+                <div class="options-container" id="options-container">
+                    <!-- Options will be loaded here by JavaScript -->
+                </div>
+                <div class="feedback-container" id="feedback-container">
+                    <div class="feedback-title" id="feedback-title"></div>
+                    <div class="feedback-text" id="feedback-text-content"></div>
+                    <button id="ask-gemini-button" class="ask-gemini-button" style="display: none;">✨ 向 Gemini 提問</button>
+                </div>
+                <div class="navigation-buttons">
+                    <button id="prev-button" class="nav-button" disabled>上一題</button>
+                    <button id="next-button" class="nav-button">下一題</button>
+                </div>
+            </div>
+            <div id="loading-indicator" class="loading-message" style="display: none;">載入題目中，請稍候...</div>
+            <div class="quiz-summary" id="quiz-summary">
+                <div class="summary-title">測驗結果</div>
+                <div class="summary-score" id="summary-score"></div>
+                <div class="summary-message" id="summary-message"></div>
+                <div id="incorrect-questions-summary" class="mt-8 text-left"></div>
+                <button id="restart-button" class="restart-button">重新測驗</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gemini Modal -->
+    <div id="gemini-modal-overlay" class="gemini-modal-overlay" style="display: none;">
+        <div class="gemini-modal-content">
+            <span class="gemini-modal-close" id="gemini-modal-close">&times;</span>
+            <div class="gemini-modal-title">向 Gemini 提問</div>
+            <div class="gemini-modal-input-area">
+                <p class="text-sm text-gray-600 mb-2">請輸入您想針對此題目詢問 Gemini 的問題：</p>
+                <textarea id="gemini-question-input" placeholder="例如：這個概念還有哪些應用？或是提供更多相關資訊..."></textarea>
+                <div class="gemini-modal-buttons">
+                    <button id="submit-gemini-question-button" class="gemini-modal-submit-button">送出問題</button>
+                </div>
+            </div>
+            <div id="gemini-loading-indicator" class="gemini-modal-loading" style="display: none;">
+                載入中... 請稍候 ✨
+            </div>
+            <div id="gemini-response-area" class="gemini-modal-response" style="display: none;">
+                <!-- Gemini's response will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase 相關變數和初始化
+        let app;
+        let db;
+        let auth;
+        // Canvas 環境提供的全域變數
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+
+        // 測驗應用程式相關變數
+        let fullQuizData = []; // 儲存從 JSON 載入的所有題目
+        let selectedQuizData = []; // 儲存隨機選取的 50 題
+        let currentQuestionIndex = 0;
+        let userAnswers = [];
+        let score = 0;
+        let incorrectQuestions = []; // 儲存答錯的題目
+
+        // DOM 元素獲取
+        const initialSelectionScreen = document.getElementById('initial-selection-screen');
+        const subjectSelect = document.getElementById('subject-select');
+        const startQuizButton = document.getElementById('start-quiz-button');
+        const currentSubjectTitle = document.getElementById('current-subject-title');
+        const questionNumberElement = document.getElementById('question-number');
+        const questionTextElement = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const feedbackContainer = document.getElementById('feedback-container');
+        const feedbackTitleElement = document.getElementById('feedback-title');
+        const feedbackTextContentElement = document.getElementById('feedback-text-content');
+        const prevButton = document.getElementById('prev-button');
+        const nextButton = document.getElementById('next-button');
+        const quizContent = document.getElementById('quiz-content');
+        const quizSummary = document.getElementById('quiz-summary');
+        const summaryScoreElement = document.getElementById('summary-score');
+        const summaryMessageElement = document.getElementById('summary-message');
+        const incorrectQuestionsSummaryElement = document.getElementById('incorrect-questions-summary');
+        const restartButton = document.getElementById('restart-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+
+        // Gemini API 相關元素
+        const askGeminiButton = document.getElementById('ask-gemini-button');
+        const geminiModalOverlay = document.getElementById('gemini-modal-overlay');
+        const geminiModalClose = document.getElementById('gemini-modal-close');
+        const geminiQuestionInput = document.getElementById('gemini-question-input');
+        const submitGeminiQuestionButton = document.getElementById('submit-gemini-question-button');
+        const geminiLoadingIndicator = document.getElementById('gemini-loading-indicator');
+        const geminiResponseArea = document.getElementById('gemini-response-area');
+
+        // 人數統計相關元素
+        const currentUserCount = document.getElementById('current-user-count');
+
+        // 科目名稱映射
+        const subjectNames = {
+            'topic1_ai_intro.json': '科目一：人工智慧基礎概論',
+            'topic2_generative_ai_app_planning.json': '科目二：生成式 AI 應用與規劃'
+        };
+
+        // Fisher-Yates 洗牌演算法
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // 初始化測驗資料：隨機抽取 50 題
+        function initializeQuizData() {
+            const shuffledFullData = shuffleArray([...fullQuizData]);
+            selectedQuizData = shuffledFullData.slice(0, Math.min(50, shuffledFullData.length));
+        }
+
+        // 載入問題
+        function loadQuestion() {
+            if (selectedQuizData.length === 0) {
+                questionTextElement.textContent = '無法載入題目。請檢查 JSON 檔案。';
+                optionsContainer.innerHTML = '';
+                prevButton.disabled = true;
+                nextButton.disabled = true;
+                return;
+            }
+
+            const questionData = selectedQuizData[currentQuestionIndex];
+            questionNumberElement.textContent = `問題 ${currentQuestionIndex + 1} / ${selectedQuizData.length}`;
+            questionTextElement.textContent = questionData.question;
+            optionsContainer.innerHTML = ''; // 清空選項
+
+            const optionLabels = ['A', 'B', 'C', 'D'];
+            questionData.options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.className = 'option-button';
+                button.innerHTML = `<span class="option-label">${optionLabels[index]}</span> ${option}`;
+                button.dataset.option = optionLabels[index];
+                button.addEventListener('click', () => selectOption(button, optionLabels[index]));
+                optionsContainer.appendChild(button);
+            });
+
+            // 顯示用戶之前的選擇和回饋（如果有的話）
+            if (userAnswers[currentQuestionIndex]) {
+                const selectedOption = userAnswers[currentQuestionIndex].selectedOption;
+                const correctOption = selectedQuizData[currentQuestionIndex].answer;
+                const buttons = optionsContainer.querySelectorAll('.option-button');
+
+                buttons.forEach(button => {
+                    button.classList.add('disabled'); // 禁用所有選項
+                    if (button.dataset.option === selectedOption) {
+                        button.classList.add('selected');
+                        if (selectedOption === correctOption) {
+                            button.classList.add('correct');
+                        } else {
+                            button.classList.add('incorrect');
+                        }
+                    }
+                    // 標示正確答案
+                    if (button.dataset.option === correctOption) {
+                        button.classList.add('correct');
+                    }
+                });
+                showFeedback(selectedQuizData[currentQuestionIndex].explanation, selectedOption === correctOption);
+                askGeminiButton.style.display = 'inline-block'; // 顯示 Gemini 按鈕
+            } else {
+                hideFeedback();
+                askGeminiButton.style.display = 'none'; // 隱藏 Gemini 按鈕
+            }
+
+            // 清空 Gemini 模態框內容
+            geminiQuestionInput.value = '';
+            geminiResponseArea.innerHTML = '';
+            geminiResponseArea.style.display = 'none';
+            geminiLoadingIndicator.style.display = 'none';
+
+            updateNavigationButtons();
+        }
+
+        // 選擇選項
+        function selectOption(selectedButton, selectedOption) {
+            // 如果已經有答案，則不允許再次選擇
+            if (userAnswers[currentQuestionIndex]) {
+                return;
+            }
+
+            const buttons = optionsContainer.querySelectorAll('.option-button');
+            buttons.forEach(button => {
+                button.classList.remove('selected');
+                button.classList.add('disabled'); // 禁用所有選項
+            });
+
+            selectedButton.classList.add('selected');
+
+            const questionData = selectedQuizData[currentQuestionIndex];
+            const correctOption = questionData.answer;
+            const isCorrect = (selectedOption === correctOption);
+
+            if (isCorrect) {
+                selectedButton.classList.add('correct');
+                score++; // 答對加分
+            } else {
+                selectedButton.classList.add('incorrect');
+                // 記錄錯題
+                incorrectQuestions.push({
+                    question: questionData.question,
+                    selectedOption: selectedOption,
+                    correctOption: correctOption,
+                    explanation: questionData.explanation
+                });
+            }
+
+            // 標示正確答案
+            buttons.forEach(button => {
+                if (button.dataset.option === correctOption) {
+                    button.classList.add('correct');
+                }
+            });
+
+            // 儲存用戶答案
+            userAnswers[currentQuestionIndex] = {
+                selectedOption: selectedOption,
+                isCorrect: isCorrect
+            };
+
+            showFeedback(questionData.explanation, isCorrect);
+            askGeminiButton.style.display = 'inline-block'; // 顯示 Gemini 按鈕
+            updateNavigationButtons(); // 選擇答案後啟用下一題按鈕
+        }
+
+        // 顯示回饋
+        function showFeedback(explanation, isCorrect) {
+            feedbackTitleElement.textContent = isCorrect ? '✅ 恭喜您，回答正確！' : '❌ 很抱歉，回答錯誤。';
+            feedbackTextContentElement.textContent = explanation;
+            feedbackContainer.classList.add('show');
+        }
+
+        // 隱藏回饋
+        function hideFeedback() {
+            feedbackContainer.classList.remove('show');
+        }
+
+        // 更新導航按鈕狀態
+        function updateNavigationButtons() {
+            prevButton.disabled = currentQuestionIndex === 0;
+            // 下一題按鈕只有在當前題目作答後才啟用
+            nextButton.disabled = !userAnswers[currentQuestionIndex];
+
+            if (currentQuestionIndex === selectedQuizData.length - 1) {
+                nextButton.textContent = '完成測驗';
+            } else {
+                nextButton.textContent = '下一題';
+            }
+        }
+
+        // 下一題按鈕事件
+        nextButton.addEventListener('click', () => {
+            // 只有當前題目作答後才能點擊下一題
+            if (!userAnswers[currentQuestionIndex]) {
+                return;
+            }
+
+            if (currentQuestionIndex < selectedQuizData.length - 1) {
+                currentQuestionIndex++;
+                loadQuestion();
+            } else {
+                // 完成測驗
+                showQuizSummary();
+            }
+        });
+
+        // 上一題按鈕事件
+        prevButton.addEventListener('click', () => {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                loadQuestion();
+            }
+        });
+
+        // 顯示測驗結果
+        function showQuizSummary() {
+            quizContent.style.display = 'none';
+            quizSummary.classList.add('show');
+
+            summaryScoreElement.textContent = `${score} / ${selectedQuizData.length}`;
+            let message = '';
+            const percentage = (score / selectedQuizData.length) * 100;
+            if (percentage === 100) {
+                message = '太棒了！您對AI應用規劃師能力有非常深入的了解！';
+            } else if (percentage >= 80) {
+                message = '表現非常出色！您已經掌握了大部分的知識。';
+            } else if (percentage >= 60) {
+                message = '不錯的開始！再加把勁，您會更棒的。';
+            } else {
+                message = '繼續努力！多加練習，您一定會進步的。';
+            }
+            summaryMessageElement.textContent = message;
+
+            // 顯示錯題回顧
+            incorrectQuestionsSummaryElement.innerHTML = ''; // 清空之前的錯題
+            if (incorrectQuestions.length > 0) {
+                const title = document.createElement('h3');
+                title.className = 'feedback-title text-xl mb-4';
+                title.textContent = '錯題回顧';
+                incorrectQuestionsSummaryElement.appendChild(title);
+
+                incorrectQuestions.forEach((item, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'incorrect-question-item';
+                    itemDiv.innerHTML = `
+                        <p class="question-text-incorrect"><strong>${index + 1}. ${item.question}</strong></p>
+                        <p class="correct-answer-text">正確答案：${item.correctOption}</p>
+                        <p class="explanation-text">${item.explanation}</p>
+                    `;
+                    incorrectQuestionsSummaryElement.appendChild(itemDiv);
+                });
+            } else {
+                const noIncorrect = document.createElement('p');
+                noIncorrect.className = 'feedback-text';
+                noIncorrect.textContent = '恭喜您，沒有答錯的題目！';
+                incorrectQuestionsSummaryElement.appendChild(noIncorrect);
+            }
+        }
+
+        // 載入 JSON 檔案的函數
+        async function loadFullQuizData(jsonFileName) {
+            initialSelectionScreen.style.display = 'none'; // 隱藏科目選擇畫面
+            loadingIndicator.style.display = 'block'; // 顯示載入中訊息
+            quizContent.style.display = 'none'; // 隱藏測驗內容
+            quizSummary.classList.remove('show'); // 隱藏總結
+
+            try {
+                // 從 GitHub 原始內容 URL 載入題目
+                const githubRawUrl = `https://raw.githubusercontent.com/ss1111119/ipas_AI-Planner-Exam/main/${jsonFileName}`;
+                const response = await fetch(githubRawUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                fullQuizData = await response.json();
+                initializeQuizData(); // 載入資料後再初始化隨機題目
+                currentQuestionIndex = 0; // 重置題目索引
+                userAnswers = []; // 清空答案
+                score = 0; // 重置分數
+                incorrectQuestions = []; // 清空錯題
+                loadQuestion(); // 載入第一題
+                quizContent.style.display = 'block'; // 顯示測驗內容
+                currentSubjectTitle.textContent = subjectNames[jsonFileName]; // 更新科目標題
+            } catch (error) {
+                console.error('載入測驗資料失敗:', error);
+                loadingIndicator.textContent = `載入題目失敗：${subjectNames[jsonFileName]}。請檢查 GitHub 上的 JSON 檔案路徑或內容格式是否正確。`;
+            } finally {
+                loadingIndicator.style.display = 'none'; // 隱藏載入中訊息 (無論成功或失敗)
+            }
+        }
+
+        // 重新測驗按鈕事件
+        restartButton.addEventListener('click', () => {
+            // 重新顯示科目選擇畫面，並隱藏測驗內容和總結
+            initialSelectionScreen.style.display = 'flex'; // 顯示科目選擇畫面
+            quizContent.style.display = 'none';
+            quizSummary.classList.remove('show');
+            askGeminiButton.style.display = 'none'; // 隱藏 Gemini 按鈕
+            // 不自動載入題目，等待用戶點擊「開始測驗」
+        });
+
+        // 「開始測驗」按鈕事件
+        startQuizButton.addEventListener('click', () => {
+            loadFullQuizData(subjectSelect.value);
+        });
+
+        // Gemini 相關事件監聽器
+        askGeminiButton.addEventListener('click', () => {
+            geminiModalOverlay.style.display = 'flex'; // 顯示模態框
+            geminiQuestionInput.focus(); // 輸入框自動獲取焦點
+        });
+
+        geminiModalClose.addEventListener('click', () => {
+            geminiModalOverlay.style.display = 'none'; // 隱藏模態框
+            geminiResponseArea.innerHTML = ''; // 清空回應內容
+            geminiResponseArea.style.display = 'none'; // 隱藏回應區域
+            geminiQuestionInput.value = ''; // 清空輸入框
+            geminiLoadingIndicator.style.display = 'none'; // 隱藏載入指示器
+        });
+
+        submitGeminiQuestionButton.addEventListener('click', async () => {
+            const userQuestion = geminiQuestionInput.value.trim();
+            if (!userQuestion) {
+                geminiResponseArea.style.display = 'block';
+                geminiResponseArea.textContent = '請輸入您的問題。';
+                return;
+            }
+
+            geminiResponseArea.innerHTML = ''; // 清空之前的回應
+            geminiResponseArea.style.display = 'none';
+            geminiLoadingIndicator.style.display = 'block'; // 顯示載入指示器
+
+            const currentQuestionData = selectedQuizData[currentQuestionIndex];
+            const prompt = `關於以下測驗題目：
+題目：${currentQuestionData.question}
+選項：
+A) ${currentQuestionData.options[0]}
+B) ${currentQuestionData.options[1]}
+C) ${currentQuestionData.options[2]}
+D) ${currentQuestionData.options[3]}
+正確答案：${currentQuestionData.answer}
+解釋：${currentQuestionData.explanation}
+
+我的問題是：${userQuestion}
+
+請根據上述資訊，詳細回答我的問題。`;
+
+            try {
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // If you want to use models other than gemini-2.0-flash or imagen-3.0-generate-002, provide an API key here. Otherwise, leave this as-is.
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    geminiResponseArea.textContent = text;
+                } else {
+                    geminiResponseArea.textContent = '抱歉，無法獲取回答。請稍後再試或換個問題。';
+                    console.error('Gemini API response structure unexpected:', result);
+                }
+            } catch (error) {
+                geminiResponseArea.textContent = '發生錯誤，無法連接到 Gemini 服務。請檢查您的網路連線。';
+                console.error('Error calling Gemini API:', error);
+            } finally {
+                geminiLoadingIndicator.style.display = 'none'; // 隱藏載入指示器
+                geminiResponseArea.style.display = 'block'; // 顯示回應區域
+            }
+        });
+
+        // Firebase 初始化和人數統計邏輯
+        async function initializeFirebase() {
+            try {
+                // 檢查 Firebase SDK 是否已載入
+                // 這裡的檢查方式需要調整，因為 v8 的 SDK 載入方式不同
+                // 我們直接嘗試初始化，如果失敗會被 catch 捕獲
+                
+                app = firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore(app);
+                auth = firebase.auth(app);
+
+                // 匿名登入或使用自訂 token 登入
+                // 注意：__initial_auth_token 只有在 Canvas 預覽環境中提供
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await auth.signInWithCustomToken(__initial_auth_token); // 使用 auth 物件
+                } else {
+                    await auth.signInAnonymously(); // 使用 auth 物件
+                }
+
+                console.log("Firebase initialized and user authenticated.");
+                trackUserVisit(); // 登入後追蹤使用者訪問
+                setupRealtimeUserCountListener(); // 設定實時人數監聽
+            } catch (error) {
+                console.error("Firebase 初始化或登入失敗:", error);
+                currentUserCount.textContent = '載入失敗';
+                // 移除原有的 SDK 檢查，因為它可能導致誤判
+                // if (typeof firebase === 'undefined' || typeof firebase.initializeApp !== 'function') {
+                //     console.error("Firebase SDK 未載入。請檢查 Firebase CDN 連結。");
+                //     currentUserCount.textContent = '載入失敗 (SDK)';
+                //     return;
+                // }
+            }
+        }
+
+        // 追蹤使用者訪問
+        async function trackUserVisit() {
+            // 等待 auth 狀態就緒
+            await new Promise(resolve => {
+                const unsubscribe = auth.onAuthStateChanged(user => {
+                    if (user) {
+                        unsubscribe(); // 取消監聽，避免重複執行
+                        resolve();
+                    }
+                });
+            });
+
+            const userId = auth.currentUser?.uid || crypto.randomUUID(); // 如果沒有 UID，使用隨機 UUID (匿名用戶)
+            if (!userId) {
+                console.error("無法獲取使用者 ID。");
+                return;
+            }
+
+            // 使用公共數據路徑：/artifacts/{appId}/public/data/users_count/{userId}
+            const userDocRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('users_count').doc(userId);
+
+            try {
+                const docSnap = await userDocRef.get();
+                if (!docSnap.exists) {
+                    // 如果使用者是第一次訪問，則記錄下來
+                    await userDocRef.set({
+                        firstVisit: firebase.firestore.FieldValue.serverTimestamp(),
+                        userId: userId // 儲存 userId 方便查詢和顯示
+                    });
+                    console.log(`新使用者訪問記錄: ${userId}`);
+                } else {
+                    console.log(`使用者已記錄: ${userId}`);
+                }
+            } catch (error) {
+                console.error("追蹤使用者訪問失敗:", error);
+            }
+        }
+
+        // 實時監聽使用者總數
+        function setupRealtimeUserCountListener() {
+            const usersCollectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('users_count');
+
+            usersCollectionRef.onSnapshot((snapshot) => {
+                const count = snapshot.size;
+                currentUserCount.textContent = count;
+                console.log(`目前參與人數已更新: ${count}`);
+            }, (error) => {
+                console.error("實時監聽人數失敗:", error);
+                currentUserCount.textContent = '載入失敗';
+            });
+        }
+
+        // 頁面載入時初始化 Firebase
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeFirebase();
+        });
+    </script>
+</body>
+</html>
