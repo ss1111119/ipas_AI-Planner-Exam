@@ -1176,11 +1176,12 @@
 
                 incorrectQuestions.forEach((item, index) => {
                     const itemDiv = document.createElement('div');
-                    itemDiv.className = 'incorrect-question-item'; /* Apply the new class for styling */
+                    // Add new classes for the block effect
+                    itemDiv.className = 'incorrect-question-item bg-red-50 border-red-300 border-2 rounded-lg p-4 mb-4 shadow-sm'; 
                     itemDiv.innerHTML = `
-                        <p class="question-text-incorrect"><strong>${index + 1}. ${item.question}</strong></p>
-                        <p class="correct-answer-text">正確答案：${item.correctOptionContent}</p>
-                        <p class="explanation-text">${item.explanation}</p>
+                        <p class="question-text-incorrect text-red-800"><strong>${index + 1}. ${item.question}</strong></p>
+                        <p class="correct-answer-text text-green-700 mt-2">正確答案：${item.correctOptionContent}</p>
+                        <p class="explanation-text text-purple-700 mt-2">${item.explanation}</p>
                     `;
                     incorrectQuestionsSummaryElement.appendChild(itemDiv);
                 });
