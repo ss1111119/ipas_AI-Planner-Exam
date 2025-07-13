@@ -627,6 +627,32 @@
             margin-bottom: 5px;
         }
 
+        /* Environment Selection Screen Styles */
+        #environment-selection-screen {
+            display: flex; /* Initially flex to be visible */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+        .env-button {
+            background-color: #6366f1; /* Indigo color */
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            border: none;
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+        }
+        .env-button:hover {
+            background-color: #4f46e5;
+            transform: translateY(-2px);
+        }
+
 
         @media (max-width: 640px) {
             .quiz-container {
@@ -688,15 +714,27 @@
                 padding: 8px 15px;
                 font-size: 1rem;
             }
+            .env-button {
+                padding: 12px 25px;
+                font-size: 1.1rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="quiz-container">
         <div class="content-wrapper">
-            <!-- 人數統計顯示區塊已移除 -->
+            <!-- New: Environment Selection Screen -->
+            <div id="environment-selection-screen" class="flex flex-col items-center justify-center h-full">
+                <h1 class="text-3xl font-bold text-gray-800 mb-8 text-center">選擇執行環境</h1>
+                <div class="flex flex-col sm:flex-row gap-6">
+                    <button id="select-canvas-env" class="env-button">使用 Canvas 環境</button>
+                    <button id="select-github-env" class="env-button">使用 GitHub Pages 環境</button>
+                </div>
+            </div>
 
-            <div id="initial-selection-screen">
+            <!-- Existing: Initial Subject Selection Screen (now hidden initially) -->
+            <div id="initial-selection-screen" style="display: none;">
                 <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">iPAS初級AI應用規劃師模擬測驗</h1>
                 <div class="subject-selection">
                     <label for="subject-select" class="sr-only">選擇科目</label>
@@ -774,7 +812,7 @@
             <div class="api-key-modal-input-area">
                 <input type="text" id="gemini-api-key-input" placeholder="您的 Gemini API 金鑰">
                 <div class="api-key-modal-buttons">
-                    <button id="api-key-modal-cancel-button" class="api-key-modal-cancel-button">取消</button> <!-- 新增 API Key 模態框的取消按鈕 -->
+                    <button id="api-key-modal-cancel-button" class="api-key-modal-cancel-button">取消</button> <!-- 獲取 API Key 模態框的取消按鈕 -->
                     <button id="submit-api-key-button" class="api-key-modal-submit-button">確認</button>
                 </div>
             </div>
@@ -796,13 +834,14 @@
     <script type="module">
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, FieldValue, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js"; 
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js"; 
 
         // Firebase 相關變數和初始化
         let app;
         let db;
         let auth;
+        let currentEnvironment = ''; // 'canvas' or 'github-pages'
         
         // 直接使用從 Firebase Console 複製的配置
         const firebaseConfig = {
@@ -810,13 +849,9 @@
           authDomain: "ipas-ai-planner-exam.firebaseapp.com",
           projectId: "ipas-ai-planner-exam",
           storageBucket: "ipas-ai-planner-exam.firebasestorage.app",
-          messagingSenderId: "1018339017757",
           appId: "1:1018339017757:web:934bf9c05ea898fdd972f4",
           measurementId: "G-5WWRYNKFJ6"
         };
-
-        // 修正：優先使用 Canvas 環境提供的 __app_id
-        const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.appId;
 
         // 測驗應用程式相關變數
         let fullQuizData = []; // 儲存從 JSON 載入的所有題目
@@ -828,6 +863,10 @@
         const optionLabels = ['A', 'B', 'C', 'D']; // 將 optionLabels 移到全域範圍
 
         // DOM 元素獲取
+        const environmentSelectionScreen = document.getElementById('environment-selection-screen'); // 新增環境選擇畫面
+        const selectCanvasEnvButton = document.getElementById('select-canvas-env');
+        const selectGithubEnvButton = document.getElementById('select-github-env');
+
         const initialSelectionScreen = document.getElementById('initial-selection-screen');
         const subjectSelect = document.getElementById('subject-select');
         const startQuizButton = document.getElementById('start-quiz-button');
@@ -873,8 +912,6 @@
 
         // Global variable to store Gemini API Key
         let geminiApiKey = ""; 
-        // Check if running outside Canvas (no __initial_auth_token)
-        const isOutsideCanvas = typeof __initial_auth_token === 'undefined';
 
         // Timer variables
         const quizDurationInSeconds = 75 * 60; // 75 minutes
@@ -1212,11 +1249,11 @@
 
         // Gemini 相關事件監聽器
         askGeminiButton.addEventListener('click', () => {
-            // If outside Canvas and no API key is set, prompt for it
-            if (isOutsideCanvas && !geminiApiKey) {
+            // 如果是 GitHub Pages 環境且沒有設定 API 金鑰，則提示輸入
+            if (currentEnvironment === 'github-pages' && !geminiApiKey) {
                 apiKeyModalOverlay.style.display = 'flex';
                 geminiApiKeyInput.focus();
-                return; // Stop here, wait for API key input
+                return; // 停止，等待 API 金鑰輸入
             }
             geminiModalOverlay.style.display = 'flex'; // 顯示模態框
             geminiQuestionInput.focus(); // 輸入框自動獲取焦點
@@ -1254,7 +1291,8 @@
                 // Now re-trigger the askGeminiButton click to proceed with the question
                 askGeminiButton.click(); 
             } else {
-                alert('請輸入有效的 Gemini API 金鑰。'); // Use a simple alert for this specific input validation
+                // 使用自定義的訊息框替代 alert
+                showConfirmationModal('提示', '請輸入有效的 Gemini API 金鑰。', null, true);
             }
         });
 
@@ -1291,7 +1329,7 @@ D) ${currentQuestionData.options[3]}
                 chatHistory.push({ role: "user", parts: [{ text: prompt }] });
                 const payload = { contents: chatHistory };
                 // Use the dynamically set geminiApiKey
-                const apiKeyToUse = isOutsideCanvas ? geminiApiKey : ""; 
+                const apiKeyToUse = (currentEnvironment === 'github-pages') ? geminiApiKey : ""; 
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKeyToUse}`;
 
                 const response = await fetch(apiUrl, {
@@ -1357,6 +1395,62 @@ D) ${currentQuestionData.options[3]}
             clearInterval(timerInterval);
         }
 
+        // 自定義確認/訊息模態框函數
+        function showConfirmationModal(title, message, onConfirmCallback, isAlert = false) {
+            const modalTitle = confirmationModalOverlay.querySelector('.confirmation-modal-title');
+            const modalMessage = confirmationModalOverlay.querySelector('.confirmation-modal-message');
+            const modalButtons = confirmationModalOverlay.querySelector('.confirmation-modal-buttons');
+
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+
+            // 清空舊按鈕
+            modalButtons.innerHTML = '';
+
+            if (isAlert) {
+                // 如果是提示訊息，只顯示一個「確定」按鈕
+                const okButton = document.createElement('button');
+                okButton.id = 'confirm-ok-button';
+                okButton.className = 'confirmation-modal-button confirm-no'; // 使用 confirm-no 的樣式
+                okButton.textContent = '確定';
+                okButton.addEventListener('click', () => {
+                    confirmationModalOverlay.style.display = 'none';
+                    if (onConfirmCallback) {
+                        onConfirmCallback();
+                    }
+                });
+                modalButtons.appendChild(okButton);
+            } else {
+                // 如果是確認訊息，顯示「確定交卷」和「取消」按鈕
+                const yesButton = document.createElement('button');
+                yesButton.id = 'confirm-yes-button';
+                yesButton.className = 'confirmation-modal-button confirm-yes';
+                yesButton.textContent = '確定交卷';
+                yesButton.addEventListener('click', () => {
+                    confirmationModalOverlay.style.display = 'none';
+                    if (onConfirmCallback) {
+                        onConfirmCallback(true);
+                    }
+                });
+                modalButtons.appendChild(yesButton);
+
+                const noButton = document.createElement('button');
+                noButton.id = 'confirm-no-button';
+                noButton.className = 'confirmation-modal-button confirm-no';
+                noButton.textContent = '取消';
+                noButton.addEventListener('click', () => {
+                    confirmationModalOverlay.style.display = 'none';
+                    if (onConfirmCallback) {
+                        onConfirmCallback(false);
+                    }
+                });
+                modalButtons.appendChild(noButton);
+            }
+
+            confirmationModalOverlay.style.display = 'flex';
+        }
+
+
         // 獲取並顯示題目數量
         async function getQuestionCounts() {
             questionCountsElement.innerHTML = '<p>正在載入題目數量...</p>';
@@ -1406,23 +1500,36 @@ D) ${currentQuestionData.options[3]}
                 auth = getAuth(app); 
                 db = getFirestore(app); 
 
-                // Only attempt anonymous sign-in if not in Canvas (where custom token is used)
-                if (isOutsideCanvas) {
+                let firebaseAppId = firebaseConfig.appId; // Default to hardcoded appId
+
+                if (currentEnvironment === 'canvas') {
+                    if (typeof __app_id !== 'undefined') {
+                        firebaseAppId = __app_id; // Use Canvas provided app ID
+                    }
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                            console.log("Firebase initialized and user authenticated with custom token (in Canvas).");
+                        } else {
+                            await signInAnonymously(auth);
+                            console.log("Firebase initialized and user authenticated anonymously (in Canvas, no custom token).");
+                        }
+                    } catch (authError) {
+                        console.error("Custom token sign-in failed, attempting anonymous sign-in:", authError);
+                        await signInAnonymously(auth);
+                        console.log("Firebase initialized and user authenticated anonymously (fallback in Canvas).");
+                    }
+                } else { // currentEnvironment === 'github-pages'
                     await signInAnonymously(auth); 
-                    console.log("Firebase initialized and user authenticated anonymously (outside Canvas).");
-                } else {
-                    // In Canvas, __initial_auth_token is provided
-                    // This part of the code assumes __initial_auth_token is handled by Canvas runtime
-                    // If you were to explicitly use it here, it would look like:
-                    // if (typeof __initial_auth_token !== 'undefined') { await signInWithCustomToken(auth, __initial_auth_token); } else { await signInAnonymously(auth); }
-                    console.log("Firebase initialized (in Canvas environment).");
+                    console.log("Firebase initialized and user authenticated anonymously (for GitHub Pages).");
                 }
 
-
-                console.log("Using appId for Firestore:", appId); // Log the actual appId being used
+                // Use the determined appId for Firestore operations
+                const effectiveAppId = firebaseAppId;
+                console.log("Using effective appId for Firestore:", effectiveAppId); 
 
                 // 確保使用者訪問記錄完成
-                await trackUserVisit(); 
+                await trackUserVisit(effectiveAppId); 
                 
             } catch (error) {
                 console.error("Firebase 初始化或登入失敗:", error);
@@ -1436,7 +1543,7 @@ D) ${currentQuestionData.options[3]}
         }
 
         // 追蹤使用者訪問
-        async function trackUserVisit() {
+        async function trackUserVisit(effectiveAppId) {
             // 等待 auth 狀態就緒
             await new Promise(resolve => {
                 const unsubscribe = onAuthStateChanged(auth, user => { 
@@ -1456,9 +1563,9 @@ D) ${currentQuestionData.options[3]}
             // 增加短暫延遲，以確保 Firestore 數據同步（診斷用）
             await new Promise(resolve => setTimeout(resolve, 500)); 
 
-            // 使用公共數據路徑：/artifacts/{appId}/public/data/user_visits/{userId}
+            // 使用公共數據路徑：/artifacts/{appId}/public/data/users_count/{userId}
             // 這裡記錄每個唯一使用者的最後訪問時間，而不是總計數
-            const userDocRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'user_visits'), userId); 
+            const userDocRef = doc(collection(db, 'artifacts', effectiveAppId, 'public', 'data', 'user_visits'), userId); 
             console.log("Firestore document path for write:", userDocRef.path); // Log the full path for debugging
             console.log("Attempting Firestore operation with UID:", userId); // Log UID right before operation
 
@@ -1467,15 +1574,15 @@ D) ${currentQuestionData.options[3]}
                 if (!docSnap.exists) {
                     // 如果使用者是第一次訪問，則記錄下來
                     await setDoc(userDocRef, { 
-                        firstVisit: FieldValue.serverTimestamp(), 
-                        lastVisit: FieldValue.serverTimestamp(),
+                        firstVisit: serverTimestamp(), 
+                        lastVisit: serverTimestamp(),
                         userId: userId 
                     });
                     console.log(`新使用者訪問記錄成功: ${userId}`); 
                 } else {
                     // 如果使用者已存在，則更新最後訪問時間
                     await setDoc(userDocRef, { 
-                        lastVisit: FieldValue.serverTimestamp() 
+                        lastVisit: serverTimestamp() 
                     }, { merge: true }); // 使用 merge: true 以免覆蓋其他字段
                     console.log(`使用者已記錄，更新最後訪問時間: ${userId}`);
                 }
@@ -1487,11 +1594,30 @@ D) ${currentQuestionData.options[3]}
             }
         }
 
-        // 頁面載入時初始化 Firebase 並獲取題目數量
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeFirebase();
-            timerDisplay.style.display = 'none'; // Hide timer on initial load
+        // 環境選擇按鈕事件監聽器
+        selectCanvasEnvButton.addEventListener('click', () => {
+            currentEnvironment = 'canvas';
+            environmentSelectionScreen.style.display = 'none';
+            initialSelectionScreen.style.display = 'flex';
+            initializeFirebase(); // Initialize Firebase based on selected environment
             getQuestionCounts(); // Fetch and display question counts
+        });
+
+        selectGithubEnvButton.addEventListener('click', () => {
+            currentEnvironment = 'github-pages';
+            environmentSelectionScreen.style.display = 'none';
+            initialSelectionScreen.style.display = 'flex';
+            initializeFirebase(); // Initialize Firebase based on selected environment
+            getQuestionCounts(); // Fetch and display question counts
+        });
+
+        // 頁面載入時只顯示環境選擇畫面
+        document.addEventListener('DOMContentLoaded', () => {
+            environmentSelectionScreen.style.display = 'flex';
+            initialSelectionScreen.style.display = 'none';
+            quizContent.style.display = 'none';
+            quizSummary.classList.remove('show');
+            timerDisplay.style.display = 'none'; // Hide timer on initial load
         });
     </script>
 </body>
