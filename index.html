@@ -629,6 +629,7 @@
         let userAnswers = [];
         let score = 0;
         let incorrectQuestions = []; // 儲存答錯的題目
+        const optionLabels = ['A', 'B', 'C', 'D']; // 將 optionLabels 移到全域範圍
 
         // DOM 元素獲取
         const initialSelectionScreen = document.getElementById('initial-selection-screen');
@@ -706,42 +707,56 @@
             questionTextElement.textContent = questionData.question;
             optionsContainer.innerHTML = ''; // 清空選項
 
-            const optionLabels = ['A', 'B', 'C', 'D'];
-            questionData.options.forEach((option, index) => {
+            // Create an array of objects, each containing option content and its original label (A, B, C, D)
+            const optionsWithOriginalLabels = questionData.options.map((optionContent, index) => ({
+                content: optionContent,
+                originalLabel: optionLabels[index] // optionLabels is global
+            }));
+
+            // Shuffle this array of objects
+            const shuffledOptions = shuffleArray(optionsWithOriginalLabels);
+
+            shuffledOptions.forEach((optionItem, index) => {
                 const button = document.createElement('button');
                 button.className = 'option-button';
-                button.innerHTML = `<span class="option-label">${optionLabels[index]}</span> ${option}`;
-                button.dataset.option = optionLabels[index];
-                button.addEventListener('click', () => selectOption(button, optionLabels[index]));
+                // Display the new label (A, B, C, D based on shuffled position) and the option content
+                button.innerHTML = `<span class="option-label">${optionLabels[index]}</span> ${optionItem.content}`;
+                // Store the original label of this option's content for correctness check
+                button.dataset.originalLabelForContent = optionItem.originalLabel;
+                // Store the actual content for display purposes (e.g., in feedback)
+                button.dataset.optionContent = optionItem.content; 
+
+                // When clicked, pass the button element and the original label of its content
+                button.addEventListener('click', () => selectOption(button, optionItem.originalLabel));
                 optionsContainer.appendChild(button);
             });
 
             // 顯示用戶之前的選擇和回饋（如果有的話）
             if (userAnswers[currentQuestionIndex]) {
-                const selectedOption = userAnswers[currentQuestionIndex].selectedOption;
-                const correctOption = selectedQuizData[currentQuestionIndex].answer;
-                const buttons = optionsContainer.querySelectorAll('.option-button');
+                const selectedOriginalLabel = userAnswers[currentQuestionIndex].selectedOriginalLabel; // Get original label of previously selected option
+                const correctOptionLabel = selectedQuizData[currentQuestionIndex].answer; // Correct answer label (A, B, C, D)
 
+                const buttons = optionsContainer.querySelectorAll('.option-button');
                 buttons.forEach(button => {
-                    button.classList.add('disabled'); // 禁用所有選項
-                    if (button.dataset.option === selectedOption) {
+                    button.classList.add('disabled'); // Disable all options
+                    if (button.dataset.originalLabelForContent === selectedOriginalLabel) {
                         button.classList.add('selected');
-                        if (selectedOption === correctOption) {
+                        if (selectedOriginalLabel === correctOptionLabel) {
                             button.classList.add('correct');
                         } else {
                             button.classList.add('incorrect');
                         }
                     }
-                    // 標示正確答案
-                    if (button.dataset.option === correctOption) {
+                    // Highlight the correct answer
+                    if (button.dataset.originalLabelForContent === correctOptionLabel) {
                         button.classList.add('correct');
                     }
                 });
-                showFeedback(selectedQuizData[currentQuestionIndex].explanation, selectedOption === correctOption);
-                askGeminiButton.style.display = 'inline-block'; // 顯示 Gemini 按鈕
+                showFeedback(selectedQuizData[currentQuestionIndex].explanation, userAnswers[currentQuestionIndex].isCorrect);
+                askGeminiButton.style.display = 'inline-block'; // Show Gemini button
             } else {
                 hideFeedback();
-                askGeminiButton.style.display = 'none'; // 隱藏 Gemini 按鈕
+                askGeminiButton.style.display = 'none'; // Hide Gemini button
             }
 
             // 清空 Gemini 模態框內容
@@ -754,7 +769,7 @@
         }
 
         // 選擇選項
-        function selectOption(selectedButton, selectedOption) {
+        function selectOption(selectedButton, selectedOriginalLabel) { // Now receives the original label of the clicked option
             // 如果已經有答案，則不允許再次選擇
             if (userAnswers[currentQuestionIndex]) {
                 return;
@@ -769,39 +784,46 @@
             selectedButton.classList.add('selected');
 
             const questionData = selectedQuizData[currentQuestionIndex];
-            const correctOption = questionData.answer;
-            const isCorrect = (selectedOption === correctOption);
+            const correctOptionLabel = questionData.answer; // Correct answer label from JSON (e.g., 'C')
+            
+            // Get the actual content of the correct answer based on its original label
+            const correctOptionContent = questionData.options[optionLabels.indexOf(correctOptionLabel)];
+
+            // Check if the selected option's original label matches the correct answer's original label
+            const isCorrect = (selectedOriginalLabel === correctOptionLabel);
 
             if (isCorrect) {
                 selectedButton.classList.add('correct');
                 score++; // 答對加分
             } else {
                 selectedButton.classList.add('incorrect');
-                // 記錄錯題
+                // Record incorrect question
                 incorrectQuestions.push({
                     question: questionData.question,
-                    selectedOption: selectedOption,
-                    correctOption: correctOption,
+                    selectedOption: selectedButton.dataset.displayLabel, // Use the displayed label (A, B, C, D)
+                    selectedOptionContent: selectedButton.dataset.optionContent, // Use the actual content
+                    correctOption: correctOptionLabel, // Original correct label (A, B, C, D)
+                    correctOptionContent: correctOptionContent, // Actual content of the correct option
                     explanation: questionData.explanation
                 });
             }
 
-            // 標示正確答案
+            // Highlight the correct answer
             buttons.forEach(button => {
-                if (button.dataset.option === correctOption) {
+                if (button.dataset.originalLabelForContent === correctOptionLabel) {
                     button.classList.add('correct');
                 }
             });
 
-            // 儲存用戶答案
+            // Store user's answer
             userAnswers[currentQuestionIndex] = {
-                selectedOption: selectedOption,
+                selectedOriginalLabel: selectedOriginalLabel, // Store the original label of the selected option
                 isCorrect: isCorrect
             };
 
             showFeedback(questionData.explanation, isCorrect);
-            askGeminiButton.style.display = 'inline-block'; // 顯示 Gemini 按鈕
-            updateNavigationButtons(); // 選擇答案後啟用下一題按鈕
+            askGeminiButton.style.display = 'inline-block'; // Show Gemini button
+            updateNavigationButtons(); // Enable next button after answering
         }
 
         // 顯示回饋
@@ -885,7 +907,7 @@
                     itemDiv.className = 'incorrect-question-item';
                     itemDiv.innerHTML = `
                         <p class="question-text-incorrect"><strong>${index + 1}. ${item.question}</strong></p>
-                        <p class="correct-answer-text">正確答案：${item.correctOption}</p>
+                        <p class="correct-answer-text">正確答案：${item.correctOptionContent}</p>
                         <p class="explanation-text">${item.explanation}</p>
                     `;
                     incorrectQuestionsSummaryElement.appendChild(itemDiv);
