@@ -319,10 +319,10 @@
         }
         .incorrect-questions-summary .incorrect-question-item {
             background-color: #fefcbf; /* Light yellow for incorrect questions */
-            border: 1px solid #f6e05e;
+            border: 2px solid #ef4444; /* Red border for incorrect questions */
             padding: 15px;
             border-radius: 8px;
-            margin-bottom: 15px;
+            margin-bottom: 15px; /* Add margin between items */
         }
         .incorrect-questions-summary .question-text-incorrect {
             font-weight: 700;
@@ -617,6 +617,16 @@
             background-color: #718096;
         }
 
+        .question-counts {
+            margin-top: 20px;
+            font-size: 1.1rem;
+            color: #4a5568;
+            text-align: center;
+        }
+        .question-counts p {
+            margin-bottom: 5px;
+        }
+
 
         @media (max-width: 640px) {
             .quiz-container {
@@ -695,6 +705,9 @@
                         <option value="topic2_generative_ai_app_planning.json">科目二：生成式 AI 應用與規劃</option>
                     </select>
                     <button id="start-quiz-button" class="start-quiz-button">開始測驗</button>
+                </div>
+                <div id="question-counts" class="question-counts">
+                    <!-- Question counts will be displayed here -->
                 </div>
             </div>
 
@@ -835,6 +848,7 @@
         const incorrectQuestionsSummaryElement = document.getElementById('incorrect-questions-summary');
         const restartButton = document.getElementById('restart-button');
         const loadingIndicator = document.getElementById('loading-indicator');
+        const questionCountsElement = document.getElementById('question-counts'); // 新增題目數量顯示元素
 
         // Gemini API 相關元素
         const askGeminiButton = document.getElementById('ask-gemini-button');
@@ -1121,7 +1135,7 @@
 
                 incorrectQuestions.forEach((item, index) => {
                     const itemDiv = document.createElement('div');
-                    itemDiv.className = 'incorrect-question-item';
+                    itemDiv.className = 'incorrect-question-item'; /* Apply the new class for styling */
                     itemDiv.innerHTML = `
                         <p class="question-text-incorrect"><strong>${index + 1}. ${item.question}</strong></p>
                         <p class="correct-answer-text">正確答案：${item.correctOptionContent}</p>
@@ -1143,6 +1157,7 @@
             loadingIndicator.style.display = 'block'; // 顯示載入中訊息
             quizContent.style.display = 'none'; // 隱藏測驗內容
             quizSummary.classList.remove('show'); // 隱藏總結
+            questionCountsElement.style.display = 'none'; // 隱藏題目數量
 
             try {
                 // 從 GitHub 原始內容 URL 載入題目
@@ -1162,21 +1177,30 @@
                 currentSubjectTitle.textContent = subjectNames[jsonFileName]; // 更新科目標題
             } catch (error) {
                 console.error('載入測驗資料失敗:', error);
-                loadingIndicator.textContent = `載入題目失敗：${subjectNames[jsonFileName]}。請檢查 GitHub 上的 JSON 檔案路徑或內容格式是否正確。`;
+                loadingIndicator.textContent = `載入題目失敗：${subjectNames[jsonFileName]}。請檢查 GitHub 上的 JSON 檔案路徑或內容格式是否正確。錯誤: ${error.message}`;
+                loadingIndicator.style.display = 'block'; // Keep it visible to show the error
+                quizContent.style.display = 'none'; // Ensure quiz content remains hidden
+                initialSelectionScreen.style.display = 'flex'; // Allow user to try again
+                questionCountsElement.style.display = 'block'; // Show counts again if loading fails
+                return; // Exit function if loading failed
             } finally {
-                loadingIndicator.style.display = 'none'; // 隱藏載入中訊息 (無論成功或失敗)
+                // Only hide loading indicator if data was successfully loaded
+                if (fullQuizData.length > 0) { 
+                    loadingIndicator.style.display = 'none';
+                }
             }
         }
 
         // 重新測驗按鈕事件
         restartButton.addEventListener('click', () => {
             // 重新顯示科目選擇畫面，並隱藏測驗內容和總結
-            initialSelectionScreen.style.display = 'flex'; // 顯示科目選擇畫面
+            initialSelectionScreen.style.display = 'flex'; /* 確保是 flex */
             quizContent.style.display = 'none';
             quizSummary.classList.remove('show');
             askGeminiButton.style.display = 'none'; // 隱藏 Gemini 按鈕
             stopTimer(); // 確保計時器停止
             timerDisplay.style.display = 'none'; // 確保計時器隱藏
+            questionCountsElement.style.display = 'block'; // 顯示題目數量
             // 不自動載入題目，等待用戶點擊「開始測驗」
         });
 
@@ -1333,6 +1357,41 @@ D) ${currentQuestionData.options[3]}
             clearInterval(timerInterval);
         }
 
+        // 獲取並顯示題目數量
+        async function getQuestionCounts() {
+            questionCountsElement.innerHTML = '<p>正在載入題目數量...</p>';
+            let allCounts = {};
+            let hasError = false;
+
+            for (const fileName in subjectNames) {
+                const githubRawUrl = `https://raw.githubusercontent.com/ss1111119/ipas_AI-Planner-Exam/main/${fileName}`;
+                try {
+                    const response = await fetch(githubRawUrl);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    allCounts[fileName] = data.length;
+                } catch (error) {
+                    console.error(`載入 ${fileName} 題目數量失敗:`, error);
+                    allCounts[fileName] = '載入失敗';
+                    hasError = true;
+                }
+            }
+
+            questionCountsElement.innerHTML = ''; // Clear loading message
+            if (hasError) {
+                questionCountsElement.innerHTML = '<p class="text-red-500">無法載入所有題目數量，請檢查網路連線或 GitHub 檔案路徑。</p>';
+            }
+            for (const fileName in subjectNames) {
+                const p = document.createElement('p');
+                p.textContent = `${subjectNames[fileName]}：${allCounts[fileName]} 題`;
+                questionCountsElement.appendChild(p);
+            }
+            questionCountsElement.style.display = 'block'; // Ensure counts are visible
+        }
+
+
         // Firebase 初始化和使用者訪問記錄邏輯
         async function initializeFirebase() {
             try {
@@ -1428,10 +1487,11 @@ D) ${currentQuestionData.options[3]}
             }
         }
 
-        // 頁面載入時初始化 Firebase
+        // 頁面載入時初始化 Firebase 並獲取題目數量
         document.addEventListener('DOMContentLoaded', () => {
             initializeFirebase();
             timerDisplay.style.display = 'none'; // Hide timer on initial load
+            getQuestionCounts(); // Fetch and display question counts
         });
     </script>
 </body>
