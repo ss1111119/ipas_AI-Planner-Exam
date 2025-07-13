@@ -363,7 +363,7 @@
             color: white;
             padding: 10px 20px;
             border-radius: 8px;
-            font-size: 1rem;
+            font-size: 1.1rem;
             font-weight: 600;
             cursor: pointer;
             transition: background-color 0.3s ease;
@@ -408,13 +408,65 @@
             transform: translateY(-2px);
         }
 
-        /* User count display */
-        .user-count-display {
-            font-size: 0.9rem;
-            color: #718096;
-            margin-bottom: 15px;
-            text-align: right;
+        /* New API Key Modal Styles */
+        .api-key-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1001; /* Higher than Gemini modal */
         }
+        .api-key-modal-content {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+            text-align: left;
+        }
+        .api-key-modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 20px;
+        }
+        .api-key-modal-input-area input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 15px;
+        }
+        .api-key-modal-input-area input:focus {
+            outline: none;
+            border-color: #63b3ed;
+        }
+        .api-key-modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+        }
+        .api-key-modal-submit-button {
+            background-color: #48bb78;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            border: none;
+        }
+        .api-key-modal-submit-button:hover {
+            background-color: #38a169;
+        }
+
 
         @media (max-width: 640px) {
             .quiz-container {
@@ -453,16 +505,19 @@
             .gemini-modal-input-area textarea {
                 min-height: 60px;
             }
+            .api-key-modal-content {
+                padding: 20px;
+            }
+            .api-key-modal-title {
+                font-size: 1.2rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="quiz-container">
         <div class="content-wrapper">
-            <!-- 人數統計顯示區塊 -->
-            <div id="user-count-display" class="user-count-display">
-                目前參與人數：<span id="current-user-count">載入中...</span>
-            </div>
+            <!-- 人數統計顯示區塊已移除 -->
 
             <div id="initial-selection-screen">
                 <div class="subject-selection">
@@ -524,11 +579,28 @@
         </div>
     </div>
 
+    <!-- API Key Input Modal -->
+    <div id="api-key-modal-overlay" class="api-key-modal-overlay" style="display: none;">
+        <div class="api-key-modal-content">
+            <div class="api-key-modal-title">請輸入您的 Gemini API 金鑰</div>
+            <p class="text-sm text-gray-600 mb-4">
+                為了在非 Canvas 環境下使用 Gemini 提問功能，請在此輸入您的 Gemini API 金鑰。
+                您可以從 <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-500 hover:underline">Google AI Studio</a> 獲取。
+            </p>
+            <div class="api-key-modal-input-area">
+                <input type="text" id="gemini-api-key-input" placeholder="您的 Gemini API 金鑰">
+                <div class="api-key-modal-buttons">
+                    <button id="submit-api-key-button" class="api-key-modal-submit-button">確認</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, FieldValue, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, collection, FieldValue, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js"; 
 
         // Firebase 相關變數和初始化
         let app;
@@ -587,8 +659,15 @@
         const geminiLoadingIndicator = document.getElementById('gemini-loading-indicator');
         const geminiResponseArea = document.getElementById('gemini-response-area');
 
-        // 人數統計相關元素
-        const currentUserCount = document.getElementById('current-user-count');
+        // New API Key Input Elements
+        const apiKeyModalOverlay = document.getElementById('api-key-modal-overlay');
+        const geminiApiKeyInput = document.getElementById('gemini-api-key-input');
+        const submitApiKeyButton = document.getElementById('submit-api-key-button');
+
+        // Global variable to store Gemini API Key
+        let geminiApiKey = ""; 
+        // Check if running outside Canvas (no __initial_auth_token)
+        const isOutsideCanvas = typeof __initial_auth_token === 'undefined';
 
         // 科目名稱映射
         const subjectNames = {
@@ -866,6 +945,12 @@
 
         // Gemini 相關事件監聽器
         askGeminiButton.addEventListener('click', () => {
+            // If outside Canvas and no API key is set, prompt for it
+            if (isOutsideCanvas && !geminiApiKey) {
+                apiKeyModalOverlay.style.display = 'flex';
+                geminiApiKeyInput.focus();
+                return; // Stop here, wait for API key input
+            }
             geminiModalOverlay.style.display = 'flex'; // 顯示模態框
             geminiQuestionInput.focus(); // 輸入框自動獲取焦點
         });
@@ -877,6 +962,20 @@
             geminiQuestionInput.value = ''; // 清空輸入框
             geminiLoadingIndicator.style.display = 'none'; // 隱藏載入指示器
         });
+
+        // Handle API Key submission
+        submitApiKeyButton.addEventListener('click', () => {
+            const inputKey = geminiApiKeyInput.value.trim();
+            if (inputKey) {
+                geminiApiKey = inputKey; // Store the input key
+                apiKeyModalOverlay.style.display = 'none'; // Hide the API key modal
+                // Now re-trigger the askGeminiButton click to proceed with the question
+                askGeminiButton.click(); 
+            } else {
+                alert('請輸入有效的 Gemini API 金鑰。'); // Use a simple alert for this specific input validation
+            }
+        });
+
 
         submitGeminiQuestionButton.addEventListener('click', async () => {
             const userQuestion = geminiQuestionInput.value.trim();
@@ -896,7 +995,7 @@
 選項：
 A) ${currentQuestionData.options[0]}
 B) ${currentQuestionData.options[1]}
-C) ${current1QuestionData.options[2]}
+C) ${currentQuestionData.options[2]}
 D) ${currentQuestionData.options[3]}
 正確答案：${currentQuestionData.answer}
 解釋：${currentQuestionData.explanation}
@@ -909,8 +1008,9 @@ D) ${currentQuestionData.options[3]}
                 let chatHistory = [];
                 chatHistory.push({ role: "user", parts: [{ text: prompt }] });
                 const payload = { contents: chatHistory };
-                const apiKey = ""; // If you want to use models other than gemini-2.0-flash or imagen-3.0-generate-002, provide an API key here. Otherwise, leave this as-is.
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                // Use the dynamically set geminiApiKey
+                const apiKeyToUse = isOutsideCanvas ? geminiApiKey : ""; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKeyToUse}`;
 
                 const response = await fetch(apiUrl, {
                     method: 'POST',
@@ -938,7 +1038,7 @@ D) ${currentQuestionData.options[3]}
             }
         });
 
-        // Firebase 初始化和人數統計邏輯
+        // Firebase 初始化和使用者訪問記錄邏輯
         async function initializeFirebase() {
             try {
                 console.log("Initializing Firebase with config:", firebaseConfig); 
@@ -952,29 +1052,31 @@ D) ${currentQuestionData.options[3]}
                 auth = getAuth(app); 
                 db = getFirestore(app); 
 
-                await signInAnonymously(auth); 
+                // Only attempt anonymous sign-in if not in Canvas (where custom token is used)
+                if (isOutsideCanvas) {
+                    await signInAnonymously(auth); 
+                    console.log("Firebase initialized and user authenticated anonymously (outside Canvas).");
+                } else {
+                    // In Canvas, __initial_auth_token is provided
+                    // This part of the code assumes __initial_auth_token is handled by Canvas runtime
+                    // If you were to explicitly use it here, it would look like:
+                    // if (typeof __initial_auth_token !== 'undefined') { await signInWithCustomToken(auth, __initial_auth_token); } else { await signInAnonymously(auth); }
+                    console.log("Firebase initialized (in Canvas environment).");
+                }
 
-                console.log("Firebase initialized and user authenticated. Using appId:", appId); // Log the actual appId being used
+
+                console.log("Using appId for Firestore:", appId); // Log the actual appId being used
 
                 // 確保使用者訪問記錄完成
                 await trackUserVisit(); 
                 
-                // 修正：在設定實時監聽器之前，先獲取一次當前人數並更新 UI
-                const usersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'users_count');
-                const snapshot = await getDocs(usersCollectionRef); // 使用 getDocs 獲取當前快照
-                const initialCount = snapshot.size;
-                currentUserCount.textContent = initialCount;
-                console.log(`初始人數更新 (getDocs): ${initialCount}`);
-
-                // 然後再設定實時監聽器，處理後續的變化
-                setupRealtimeUserCountListener(); 
             } catch (error) {
                 console.error("Firebase 初始化或登入失敗:", error);
                 // 根據錯誤類型提供更明確的訊息
                 if (error.code === 'auth/configuration-not-found') {
-                    currentUserCount.textContent = `載入失敗: Firebase 設定錯誤。請確認您的 Firebase 專案配置 (apiKey, authDomain, projectId, appId) 是否正確，並已啟用 Authentication 服務中的「匿名」登入方式。`;
+                    console.error(`Firebase 設定錯誤。請確認您的 Firebase 專案配置 (apiKey, authDomain, projectId, 和 appId) 是否正確，並已啟用 Authentication 服務中的「匿名」登入方式。`);
                 } else {
-                    currentUserCount.textContent = `載入失敗: ${error.message || '未知錯誤。'}`;
+                    console.error(`載入失敗: ${error.message || '未知錯誤。'}`);
                 }
             }
         }
@@ -991,14 +1093,20 @@ D) ${currentQuestionData.options[3]}
                 });
             });
 
-            const userId = auth.currentUser?.uid || crypto.randomUUID(); 
+            const userId = auth.currentUser?.uid; 
             if (!userId) {
-                console.error("無法獲取使用者 ID。");
+                console.error("追蹤使用者訪問失敗: 無法獲取使用者 ID (auth.currentUser 為空)。");
                 return;
             }
 
-            // 使用公共數據路徑：/artifacts/{appId}/public/data/users_count/{userId}
-            const userDocRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'users_count'), userId); 
+            // 增加短暫延遲，以確保 Firestore 數據同步（診斷用）
+            await new Promise(resolve => setTimeout(resolve, 500)); 
+
+            // 使用公共數據路徑：/artifacts/{appId}/public/data/user_visits/{userId}
+            // 這裡記錄每個唯一使用者的最後訪問時間，而不是總計數
+            const userDocRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'user_visits'), userId); 
+            console.log("Firestore document path for write:", userDocRef.path); // Log the full path for debugging
+            console.log("Attempting Firestore operation with UID:", userId); // Log UID right before operation
 
             try {
                 const docSnap = await getDoc(userDocRef); 
@@ -1006,30 +1114,23 @@ D) ${currentQuestionData.options[3]}
                     // 如果使用者是第一次訪問，則記錄下來
                     await setDoc(userDocRef, { 
                         firstVisit: FieldValue.serverTimestamp(), 
+                        lastVisit: FieldValue.serverTimestamp(),
                         userId: userId 
                     });
                     console.log(`新使用者訪問記錄成功: ${userId}`); 
                 } else {
-                    console.log(`使用者已記錄: ${userId}`);
+                    // 如果使用者已存在，則更新最後訪問時間
+                    await setDoc(userDocRef, { 
+                        lastVisit: FieldValue.serverTimestamp() 
+                    }, { merge: true }); // 使用 merge: true 以免覆蓋其他字段
+                    console.log(`使用者已記錄，更新最後訪問時間: ${userId}`);
                 }
             } catch (error) {
                 console.error("追蹤使用者訪問失敗:", error);
+                if (error.code === 'permission-denied') {
+                    console.error("錯誤提示: Firebase 權限不足。請檢查您的 Firestore 安全規則，確保允許匿名使用者在路徑 `/artifacts/{appId}/public/data/user_visits/{userId}` 上進行讀寫操作。");
+                }
             }
-        }
-
-        // 實時監聽使用者總數
-        function setupRealtimeUserCountListener() {
-            const usersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'users_count'); 
-
-            // onSnapshot 會在第一次監聽時觸發一次，以及每次數據變化時觸發
-            onSnapshot(usersCollectionRef, (snapshot) => { 
-                const count = snapshot.size;
-                currentUserCount.textContent = count;
-                console.log(`onSnapshot 監聽到人數更新: ${count}`); 
-            }, (error) => {
-                console.error("實時監聽人數失敗:", error);
-                currentUserCount.textContent = '載入失敗';
-            });
         }
 
         // 頁面載入時初始化 Firebase
