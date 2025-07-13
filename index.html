@@ -26,9 +26,14 @@
             padding: 30px;
             max-width: 800px;
             width: 100%;
-            text-align: center;
+            /* 調整為 Flexbox 佈局以確保內容居中 */
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* 水平居中 */
+            justify-content: center; /* 垂直居中 */
             position: relative;
             overflow: hidden; /* For background animation */
+            min-height: 400px; /* 確保容器有足夠高度來居中內容 */
         }
         .quiz-container::before {
             content: '';
@@ -49,6 +54,13 @@
         .content-wrapper {
             position: relative;
             z-index: 1;
+            width: 100%; /* 確保佔滿父容器寬度 */
+            height: 100%; /* 確保佔滿父容器高度 */
+            /* 調整為 Flexbox 佈局以確保其子元素居中 */
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* 水平居中 */
+            justify-content: center; /* 垂直居中 */
         }
         .loading-message {
             font-size: 1.5rem;
@@ -108,6 +120,15 @@
             background-color: #a0aec0;
             cursor: not-allowed;
             box-shadow: none;
+        }
+        /* 確保初始選擇畫面居中 */
+        #initial-selection-screen {
+            display: flex; /* 預設為 Flexbox 佈局 */
+            flex-direction: column; /* 垂直排列子元素 */
+            align-items: center; /* 水平居中子元素 */
+            justify-content: center; /* 垂直居中子元素 */
+            width: 100%; /* 佔滿父容器寬度 */
+            height: 100%; /* 佔滿父容器高度 */
         }
         .subject-title {
             font-size: 1.8rem;
@@ -666,7 +687,7 @@
             <!-- 人數統計顯示區塊已移除 -->
 
             <div id="initial-selection-screen">
-                <h1 class="text-3xl font-bold text-gray-800 mb-6">iPAS初級AI應用規劃師模擬測驗</h1>
+                <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">iPAS初級AI應用規劃師模擬測驗</h1>
                 <div class="subject-selection">
                     <label for="subject-select" class="sr-only">選擇科目</label>
                     <select id="subject-select">
