@@ -372,6 +372,20 @@
         .gemini-modal-submit-button:hover {
             background-color: #3182ce;
         }
+        .gemini-modal-cancel-button { /* New style for cancel button */
+            background-color: #a0aec0;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            border: none;
+        }
+        .gemini-modal-cancel-button:hover {
+            background-color: #718096;
+        }
         .gemini-modal-loading {
             text-align: center;
             margin-top: 20px;
@@ -568,6 +582,7 @@
                 <p class="text-sm text-gray-600 mb-2">請輸入您想針對此題目詢問 Gemini 的問題：</p>
                 <textarea id="gemini-question-input" placeholder="例如：這個概念還有哪些應用？或是提供更多相關資訊..."></textarea>
                 <div class="gemini-modal-buttons">
+                    <button id="gemini-modal-cancel-button" class="gemini-modal-cancel-button">取消</button> <!-- 新增取消按鈕 -->
                     <button id="submit-gemini-question-button" class="gemini-modal-submit-button">送出問題</button>
                 </div>
             </div>
@@ -658,6 +673,7 @@
         const geminiModalClose = document.getElementById('gemini-modal-close');
         const geminiQuestionInput = document.getElementById('gemini-question-input');
         const submitGeminiQuestionButton = document.getElementById('submit-gemini-question-button');
+        const geminiModalCancelButton = document.getElementById('gemini-modal-cancel-button'); // 新增取消按鈕元素
         const geminiLoadingIndicator = document.getElementById('gemini-loading-indicator');
         const geminiResponseArea = document.getElementById('gemini-response-area');
 
@@ -979,6 +995,15 @@
         });
 
         geminiModalClose.addEventListener('click', () => {
+            geminiModalOverlay.style.display = 'none'; // 隱藏模態框
+            geminiResponseArea.innerHTML = ''; // 清空回應內容
+            geminiResponseArea.style.display = 'none'; // 隱藏回應區域
+            geminiQuestionInput.value = ''; // 清空輸入框
+            geminiLoadingIndicator.style.display = 'none'; // 隱藏載入指示器
+        });
+
+        // 新增取消按鈕的事件監聽器
+        geminiModalCancelButton.addEventListener('click', () => {
             geminiModalOverlay.style.display = 'none'; // 隱藏模態框
             geminiResponseArea.innerHTML = ''; // 清空回應內容
             geminiResponseArea.style.display = 'none'; // 隱藏回應區域
