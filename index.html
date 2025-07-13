@@ -528,8 +528,7 @@
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-        // 修正：導入 onSnapshot
-        import { getFirestore, doc, getDoc, setDoc, collection, FieldValue, onSnapshot } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, FieldValue, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
         // Firebase 相關變數和初始化
         let app;
@@ -540,14 +539,15 @@
         const firebaseConfig = {
           apiKey: "***REMOVED***",
           authDomain: "ipas-ai-planner-exam.firebaseapp.com",
-          // databaseURL: "https://ipas-ai-planner-exam-default-rtdb.firebaseio.com", // 這是 Realtime Database 的 URL，Firestore 不需要
           projectId: "ipas-ai-planner-exam",
           storageBucket: "ipas-ai-planner-exam.firebasestorage.app",
           messagingSenderId: "1018339017757",
           appId: "1:1018339017757:web:934bf9c05ea898fdd972f4",
           measurementId: "G-5WWRYNKFJ6"
         };
-        const appId = firebaseConfig.appId; // 直接從配置中獲取 appId
+
+        // 修正：優先使用 Canvas 環境提供的 __app_id
+        const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.appId;
 
         // 測驗應用程式相關變數
         let fullQuizData = []; // 儲存從 JSON 載入的所有題目
@@ -896,7 +896,7 @@
 選項：
 A) ${currentQuestionData.options[0]}
 B) ${currentQuestionData.options[1]}
-C) ${currentQuestionData.options[2]}
+C) ${current1QuestionData.options[2]}
 D) ${currentQuestionData.options[3]}
 正確答案：${currentQuestionData.answer}
 解釋：${currentQuestionData.explanation}
@@ -941,23 +941,33 @@ D) ${currentQuestionData.options[3]}
         // Firebase 初始化和人數統計邏輯
         async function initializeFirebase() {
             try {
-                console.log("Initializing Firebase with config:", firebaseConfig); // 新增 log 輸出配置
+                console.log("Initializing Firebase with config:", firebaseConfig); 
                 
                 // 檢查關鍵配置屬性是否存在
                 if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId || !firebaseConfig.appId) {
                     throw new Error("Firebase 配置不完整。請確保 apiKey, authDomain, projectId, 和 appId 都已提供。");
                 }
 
-                app = initializeApp(firebaseConfig); // 使用模組化 initializeApp
-                auth = getAuth(app); // 使用模組化 getAuth
-                db = getFirestore(app); // 使用模組化 getFirestore
+                app = initializeApp(firebaseConfig); 
+                auth = getAuth(app); 
+                db = getFirestore(app); 
 
-                // 在部署環境下，直接使用匿名登入
                 await signInAnonymously(auth); 
 
-                console.log("Firebase initialized and user authenticated.");
-                trackUserVisit(); // 登入後追蹤使用者訪問
-                setupRealtimeUserCountListener(); // 設定實時人數監聽
+                console.log("Firebase initialized and user authenticated. Using appId:", appId); // Log the actual appId being used
+
+                // 確保使用者訪問記錄完成
+                await trackUserVisit(); 
+                
+                // 修正：在設定實時監聽器之前，先獲取一次當前人數並更新 UI
+                const usersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'users_count');
+                const snapshot = await getDocs(usersCollectionRef); // 使用 getDocs 獲取當前快照
+                const initialCount = snapshot.size;
+                currentUserCount.textContent = initialCount;
+                console.log(`初始人數更新 (getDocs): ${initialCount}`);
+
+                // 然後再設定實時監聽器，處理後續的變化
+                setupRealtimeUserCountListener(); 
             } catch (error) {
                 console.error("Firebase 初始化或登入失敗:", error);
                 // 根據錯誤類型提供更明確的訊息
@@ -973,32 +983,32 @@ D) ${currentQuestionData.options[3]}
         async function trackUserVisit() {
             // 等待 auth 狀態就緒
             await new Promise(resolve => {
-                const unsubscribe = onAuthStateChanged(auth, user => { // 使用模組化 onAuthStateChanged
+                const unsubscribe = onAuthStateChanged(auth, user => { 
                     if (user) {
-                        unsubscribe(); // 取消監聽，避免重複執行
+                        unsubscribe(); 
                         resolve();
                     }
                 });
             });
 
-            const userId = auth.currentUser?.uid || crypto.randomUUID(); // 如果沒有 UID，使用隨機 UUID (匿名用戶)
+            const userId = auth.currentUser?.uid || crypto.randomUUID(); 
             if (!userId) {
                 console.error("無法獲取使用者 ID。");
                 return;
             }
 
             // 使用公共數據路徑：/artifacts/{appId}/public/data/users_count/{userId}
-            const userDocRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'users_count'), userId); // 使用模組化 doc 和 collection
+            const userDocRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'users_count'), userId); 
 
             try {
-                const docSnap = await getDoc(userDocRef); // 使用模組化 getDoc
+                const docSnap = await getDoc(userDocRef); 
                 if (!docSnap.exists) {
                     // 如果使用者是第一次訪問，則記錄下來
-                    await setDoc(userDocRef, { // 使用模組化 setDoc
-                        firstVisit: FieldValue.serverTimestamp(), // 使用模組化 FieldValue
-                        userId: userId // 儲存 userId 方便查詢和顯示
+                    await setDoc(userDocRef, { 
+                        firstVisit: FieldValue.serverTimestamp(), 
+                        userId: userId 
                     });
-                    console.log(`新使用者訪問記錄: ${userId}`);
+                    console.log(`新使用者訪問記錄成功: ${userId}`); 
                 } else {
                     console.log(`使用者已記錄: ${userId}`);
                 }
@@ -1009,12 +1019,13 @@ D) ${currentQuestionData.options[3]}
 
         // 實時監聽使用者總數
         function setupRealtimeUserCountListener() {
-            const usersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'users_count'); // 使用模組化 collection
+            const usersCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'users_count'); 
 
-            onSnapshot(usersCollectionRef, (snapshot) => { // 使用模組化 onSnapshot
+            // onSnapshot 會在第一次監聽時觸發一次，以及每次數據變化時觸發
+            onSnapshot(usersCollectionRef, (snapshot) => { 
                 const count = snapshot.size;
                 currentUserCount.textContent = count;
-                console.log(`目前參與人數已更新: ${count}`);
+                console.log(`onSnapshot 監聽到人數更新: ${count}`); 
             }, (error) => {
                 console.error("實時監聽人數失敗:", error);
                 currentUserCount.textContent = '載入失敗';
