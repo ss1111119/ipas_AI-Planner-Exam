@@ -223,6 +223,27 @@
             cursor: not-allowed;
             box-shadow: none;
         }
+        .submit-quiz-button { /* New style for submit quiz button */
+            background-color: #ef4444; /* Red color for submit */
+            color: white;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            border: none;
+            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+        }
+        .submit-quiz-button:hover:not(:disabled) {
+            background-color: #dc2626;
+            transform: translateY(-2px);
+        }
+        .submit-quiz-button:disabled {
+            background-color: #a0aec0;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
         .quiz-summary {
             margin-top: 30px;
             padding: 30px;
@@ -496,6 +517,85 @@
             background-color: #718096;
         }
 
+        /* Timer Display Styles */
+        .timer-display {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            text-align: center;
+            font-size: 1.2rem; /* Adjusted for better visibility */
+            font-weight: 700;
+            color: #2d3748; /* Darker text for contrast */
+            background-color: #e0f2fe; /* Light blue background */
+            padding: 8px 15px; /* Adjusted padding */
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            display: none; /* Hidden by default */
+        }
+
+        /* Confirmation Modal Styles */
+        .confirmation-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1002; /* Higher than other modals */
+        }
+        .confirmation-modal-content {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+        .confirmation-modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 20px;
+        }
+        .confirmation-modal-message {
+            font-size: 1.1rem;
+            color: #4a5568;
+            margin-bottom: 25px;
+        }
+        .confirmation-modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .confirmation-modal-button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            border: none;
+        }
+        .confirm-yes {
+            background-color: #ef4444;
+            color: white;
+        }
+        .confirm-yes:hover {
+            background-color: #dc2626;
+        }
+        .confirm-no {
+            background-color: #a0aec0;
+            color: white;
+        }
+        .confirm-no:hover {
+            background-color: #718096;
+        }
+
 
         @media (max-width: 640px) {
             .quiz-container {
@@ -540,6 +640,23 @@
             .api-key-modal-title {
                 font-size: 1.2rem;
             }
+            .timer-display {
+                font-size: 1rem; /* Smaller font for mobile */
+                padding: 6px 12px;
+            }
+            .confirmation-modal-content {
+                padding: 20px;
+            }
+            .confirmation-modal-title {
+                font-size: 1.2rem;
+            }
+            .confirmation-modal-message {
+                font-size: 1rem;
+            }
+            .confirmation-modal-button {
+                padding: 8px 15px;
+                font-size: 1rem;
+            }
         }
     </style>
 </head>
@@ -561,6 +678,7 @@
             </div>
 
             <div id="quiz-content" style="display: none;">
+                <div class="timer-display" id="timer-display">00:00</div> <!-- 計時器顯示區塊 -->
                 <div class="subject-title" id="current-subject-title"></div> <!-- 動態顯示科目標題 -->
                 <div class="question-number" id="question-number"></div>
                 <div class="question-text" id="question-text"></div>
@@ -575,6 +693,7 @@
                 <div class="navigation-buttons">
                     <button id="prev-button" class="nav-button" disabled>上一題</button>
                     <button id="next-button" class="nav-button">下一題</button>
+                    <button id="submit-early-button" class="submit-quiz-button">交卷</button> <!-- 新增交卷按鈕 -->
                 </div>
             </div>
             <div id="loading-indicator" class="loading-message" style="display: none;">載入題目中，請稍候...</div>
@@ -628,6 +747,18 @@
         </div>
     </div>
 
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal-overlay" class="confirmation-modal-overlay" style="display: none;">
+        <div class="confirmation-modal-content">
+            <div class="confirmation-modal-title">確認交卷</div>
+            <div class="confirmation-modal-message">您確定要提前交卷嗎？交卷後將無法再修改答案。</div>
+            <div class="confirmation-modal-buttons">
+                <button id="confirm-yes-button" class="confirmation-modal-button confirm-yes">確定交卷</button>
+                <button id="confirm-no-button" class="confirmation-modal-button confirm-no">取消</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
@@ -675,6 +806,7 @@
         const feedbackTextContentElement = document.getElementById('feedback-text-content');
         const prevButton = document.getElementById('prev-button');
         const nextButton = document.getElementById('next-button');
+        const submitEarlyButton = document.getElementById('submit-early-button'); // 新增交卷按鈕元素
         const quizContent = document.getElementById('quiz-content');
         const quizSummary = document.getElementById('quiz-summary');
         const summaryScoreElement = document.getElementById('summary-score');
@@ -699,10 +831,22 @@
         const submitApiKeyButton = document.getElementById('submit-api-key-button');
         const apiKeyModalCancelButton = document.getElementById('api-key-modal-cancel-button'); // 獲取 API Key 模態框的取消按鈕
 
+        // Confirmation Modal Elements
+        const confirmationModalOverlay = document.getElementById('confirmation-modal-overlay');
+        const confirmYesButton = document.getElementById('confirm-yes-button');
+        const confirmNoButton = document.getElementById('confirm-no-button');
+
         // Global variable to store Gemini API Key
         let geminiApiKey = ""; 
         // Check if running outside Canvas (no __initial_auth_token)
         const isOutsideCanvas = typeof __initial_auth_token === 'undefined';
+
+        // Timer variables
+        const quizDurationInSeconds = 75 * 60; // 75 minutes
+        let timeRemaining = quizDurationInSeconds;
+        let timerInterval;
+        const timerDisplay = document.getElementById('timer-display');
+
 
         // 科目名稱映射
         const subjectNames = {
@@ -732,6 +876,7 @@
                 optionsContainer.innerHTML = '';
                 prevButton.disabled = true;
                 nextButton.disabled = true;
+                submitEarlyButton.disabled = true; // Disable submit button if no questions
                 return;
             }
 
@@ -876,6 +1021,7 @@
             prevButton.disabled = currentQuestionIndex === 0;
             // 下一題按鈕只有在當前題目作答後才啟用
             nextButton.disabled = !userAnswers[currentQuestionIndex];
+            submitEarlyButton.disabled = false; // Always enable submit button during quiz
 
             if (currentQuestionIndex === selectedQuizData.length - 1) {
                 nextButton.textContent = '完成測驗';
@@ -908,8 +1054,25 @@
             }
         });
 
+        // 交卷按鈕事件
+        submitEarlyButton.addEventListener('click', () => {
+            confirmationModalOverlay.style.display = 'flex'; // Show confirmation modal
+        });
+
+        // 確認交卷按鈕事件
+        confirmYesButton.addEventListener('click', () => {
+            confirmationModalOverlay.style.display = 'none'; // Hide confirmation modal
+            showQuizSummary(); // Proceed to show quiz summary
+        });
+
+        // 取消交卷按鈕事件
+        confirmNoButton.addEventListener('click', () => {
+            confirmationModalOverlay.style.display = 'none'; // Hide confirmation modal
+        });
+
         // 顯示測驗結果
         function showQuizSummary() {
+            stopTimer(); // Stop the timer when the quiz summary is shown
             quizContent.style.display = 'none';
             quizSummary.classList.add('show');
 
@@ -991,12 +1154,15 @@
             quizContent.style.display = 'none';
             quizSummary.classList.remove('show');
             askGeminiButton.style.display = 'none'; // 隱藏 Gemini 按鈕
+            stopTimer(); // 確保計時器停止
+            timerDisplay.style.display = 'none'; // 確保計時器隱藏
             // 不自動載入題目，等待用戶點擊「開始測驗」
         });
 
         // 「開始測驗」按鈕事件
         startQuizButton.addEventListener('click', () => {
             loadFullQuizData(subjectSelect.value);
+            startTimer(); // Start the timer when the quiz begins
         });
 
         // Gemini 相關事件監聽器
@@ -1109,6 +1275,43 @@ D) ${currentQuestionData.options[3]}
             }
         });
 
+        // Timer functions
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+        }
+
+        function startTimer() {
+            timeRemaining = quizDurationInSeconds; // Reset time for new quiz
+            timerDisplay.textContent = formatTime(timeRemaining);
+            timerDisplay.style.display = 'block'; // Show timer when quiz starts
+
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                timerDisplay.textContent = formatTime(timeRemaining);
+
+                if (timeRemaining <= 0) {
+                    stopTimer();
+                    // Automatically submit the quiz when time runs out
+                    showQuizSummary();
+                    // Optionally, disable all options to prevent further interaction
+                    const buttons = optionsContainer.querySelectorAll('.option-button');
+                    buttons.forEach(button => {
+                        button.classList.add('disabled');
+                    });
+                    // Also disable navigation buttons and submit button
+                    prevButton.disabled = true;
+                    nextButton.disabled = true;
+                    submitEarlyButton.disabled = true;
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
         // Firebase 初始化和使用者訪問記錄邏輯
         async function initializeFirebase() {
             try {
@@ -1207,6 +1410,7 @@ D) ${currentQuestionData.options[3]}
         // 頁面載入時初始化 Firebase
         document.addEventListener('DOMContentLoaded', () => {
             initializeFirebase();
+            timerDisplay.style.display = 'none'; // Hide timer on initial load
         });
     </script>
 </body>
