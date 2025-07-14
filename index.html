@@ -287,7 +287,7 @@
             cursor: not-allowed;
             box-shadow: none;
         }
-        /* 測驗總結區塊樣式 */
+        /* 測驗總結區塊 (預設隱藏) */
         .quiz-summary {
             margin-top: 30px;
             padding: 30px;
@@ -890,7 +890,7 @@
             color: #a0aec0;
             transition: color 0.2s ease;
         }
-        #leaderboard-modal-close:hover {
+        .leaderboard-modal-close:hover {
             color: #4a5568;
         }
         /* 排行榜標題樣式 */
@@ -1307,7 +1307,8 @@
         let currentUserDisplayName = ''; // 儲存使用者自定義的暱稱
 
         // Firebase 專案配置 (請確保這是您的實際配置)
-        const firebaseConfig = {
+        // 在 Canvas 環境下，會優先使用 __firebase_config
+        const defaultFirebaseConfig = {
           apiKey: "***REMOVED***",
           authDomain: "ipas-ai-planner-exam.firebaseapp.com",
           projectId: "ipas-ai-planner-exam",
@@ -2297,41 +2298,38 @@ D) ${currentQuestionData.options[3]}
         async function initializeFirebaseServices() {
             try {
                 console.log("initializeFirebaseServices: 開始初始化 Firebase 服務...");
-                console.log("initializeFirebaseServices: 檢查 firebaseConfig:", firebaseConfig);
                 
-                if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId || !firebaseConfig.appId) {
-                    console.error("initializeFirebaseServices: Firebase 配置不完整。請確保 apiKey, authDomain, projectId, 和 appId 都已提供。", firebaseConfig);
+                let currentFirebaseConfig;
+
+                // 優先使用 Canvas 環境提供的 __firebase_config
+                if (typeof __firebase_config !== 'undefined') {
+                    currentFirebaseConfig = JSON.parse(__firebase_config);
+                    currentEnvironment = 'canvas';
+                    effectiveAppId = typeof __app_id !== 'undefined' ? __app_id : currentFirebaseConfig.appId; // Canvas 環境下，appId 使用 __app_id，如果沒有則用 __firebase_config 的 appId
+                    console.log("initializeFirebaseServices: 檢測到 Canvas 環境。使用 __firebase_config。");
+                } else {
+                    currentFirebaseConfig = defaultFirebaseConfig; // GitHub Pages 環境使用硬編碼的配置
+                    currentEnvironment = 'github-pages';
+                    effectiveAppId = currentFirebaseConfig.appId; // GitHub Pages 環境使用 defaultFirebaseConfig 的 appId
+                    console.log("initializeFirebaseServices: 檢測到 GitHub Pages 環境。使用 defaultFirebaseConfig。");
+                }
+
+                console.log("initializeFirebaseServices: 實際使用的 Firebase Config:", currentFirebaseConfig);
+                console.log("initializeFirebaseServices: 實際使用的 App ID (effectiveAppId):", effectiveAppId);
+
+                if (!currentFirebaseConfig.apiKey || !currentFirebaseConfig.authDomain || !currentFirebaseConfig.projectId || !currentFirebaseConfig.appId) {
+                    console.error("initializeFirebaseServices: Firebase 配置不完整。請確保 apiKey, authDomain, projectId, 和 appId 都已提供。", currentFirebaseConfig);
                     throw new Error("Firebase 配置不完整。請確保 apiKey, authDomain, projectId, 和 appId 都已提供。");
                 }
 
                 if (!app) {
-                    app = initializeApp(firebaseConfig); 
+                    app = initializeApp(currentFirebaseConfig); 
                     auth = getAuth(app); 
                     db = getFirestore(app); 
                     console.log("initializeFirebaseServices: Firebase app, auth, db 已初始化。");
                 } else {
                     console.log("initializeFirebaseServices: Firebase 服務已初始化，跳過重複初始化。");
                 }
-
-                let firebaseAppId = firebaseConfig.appId;
-                
-                // --- 修改開始 ---
-                // 如果您希望在 Canvas 環境下強制使用特定的 appId，請取消註解以下兩行
-                // 並將 'YOUR_DESIRED_CANVAS_APP_ID' 替換為您想要使用的 appId
-                const forceCanvasAppId = 'c_5a1dec0091e729e8_quiz_app_with_stats-11'; // 您要強制使用的 Canvas App ID
-                
-                if (typeof __app_id !== 'undefined') {
-                    currentEnvironment = 'canvas';
-                    effectiveAppId = forceCanvasAppId; // 強制使用您指定的 Canvas App ID
-                    console.log("initializeFirebaseServices: 檢測到 Canvas 環境。強制使用指定的 appId:", effectiveAppId);
-                } else {
-                    currentEnvironment = 'github-pages'; // 預設為 GitHub Pages 環境
-                    effectiveAppId = firebaseAppId; // GitHub Pages 環境使用 firebaseConfig 中的 appId
-                    console.log("initializeFirebaseServices: 檢測到 GitHub Pages 環境。使用 firebaseConfig 中的 appId:", effectiveAppId);
-                }
-                // --- 修改結束 ---
-
-                console.log("initializeFirebaseServices: 實際使用的 appId (effectiveAppId):", effectiveAppId);
 
             } catch (error) {
                 console.error("initializeFirebaseServices: Firebase 初始化失敗:", error);
@@ -2698,9 +2696,6 @@ D) ${currentQuestionData.options[3]}
             }
         }
 
-        // 為分享結果按鈕添加事件監聽器
-        shareResultsButton.addEventListener('click', shareQuizResults);
-
         // 頁面載入時執行初始化邏輯
         document.addEventListener('DOMContentLoaded', async () => {
             showGlobalLoading(); // 在 DOMContentLoaded 時顯示載入中
@@ -2717,6 +2712,9 @@ D) ${currentQuestionData.options[3]}
             // 立即獲取並顯示訪問人數
             await getAndDisplayUserCount();
             hideGlobalLoading(); // 在 DOMContentLoaded 完成後隱藏載入中
+
+            // 為分享結果按鈕添加事件監聽器 (確保在 DOMContentLoaded 後執行)
+            shareResultsButton.addEventListener('click', shareQuizResults);
 
             // 添加 beforeunload 監聽器以在頁面關閉前保存進度
             window.addEventListener('beforeunload', async () => {
