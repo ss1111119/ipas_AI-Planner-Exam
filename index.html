@@ -7,7 +7,7 @@
     <!-- Tailwind CSS CDN - 用於快速構建響應式設計 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Inter 字體 - 提供現代且易讀的字體樣式 -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         /* 基本樣式設定，確保內容垂直居中 */
         body {
@@ -1327,7 +1327,7 @@
         let incorrectQuestions = []; // 儲存答錯的題目
         const optionLabels = ['A', 'B', 'C', 'D']; // 選項標籤 (A, B, C, D)
         let loadedProgressData = null; // 儲存從 Firestore 載入的進度資料
-        const POINTS_PER_QUESTION = 2; // 每題分數
+        const POINTS_PER_QUESTION = 2.5; // 每題分數
 
         // DOM 元素獲取
         const environmentSelectionScreen = document.getElementById('environment-selection-screen');
@@ -1613,12 +1613,83 @@
         }
 
         /**
-         * 初始化測驗資料：從完整題目中隨機抽取 50 題。
+         * 獲取問題的唯一識別碼。
+         * 建議：如果您的 JSON 題目資料中有 'id' 欄位，請優先使用它。
+         * 如果沒有，則使用 'question' 文本作為識別碼。
+         * @param {Object} question - 題目物件。
+         * @returns {string} - 題目的唯一識別碼。
+         */
+        function getQuestionIdentifier(question) {
+            // 優先使用題目中的 'id' 欄位（如果存在）
+            if (question.id) {
+                return question.id;
+            }
+            // 否則，使用題目文本作為識別碼
+            return question.question;
+        }
+
+        /**
+         * 初始化測驗資料：從完整題目中隨機抽取 50 題，優先選取未做過的題目。
          */
         function initializeQuizData() {
-            const shuffledFullData = shuffleArray([...fullQuizData]);
-            selectedQuizData = shuffledFullData.slice(0, Math.min(50, shuffledFullData.length));
+            const currentSubjectId = subjectSelect.value;
+            const playedQuestionIdsKey = `played_questions_${currentSubjectId}`;
+            const playedQuestionIds = new Set(JSON.parse(localStorage.getItem(playedQuestionIdsKey) || '[]'));
+
+            let newQuestions = [];
+            let recycledQuestions = [];
+
+            // 將題目分為「新題目」和「已做過題目」
+            fullQuizData.forEach(question => {
+                const questionId = getQuestionIdentifier(question);
+                if (playedQuestionIds.has(questionId)) {
+                    recycledQuestions.push(question);
+                } else {
+                    newQuestions.push(question);
+                }
+            });
+
+            // 洗牌新題目和已做過題目
+            shuffleArray(newQuestions);
+            shuffleArray(recycledQuestions);
+
+            selectedQuizData = [];
+            const desiredQuizLength = 50;
+
+            // 優先從新題目中選取
+            for (let i = 0; i < newQuestions.length && selectedQuizData.length < desiredQuizLength; i++) {
+                selectedQuizData.push(newQuestions[i]);
+            }
+
+            // 如果新題目不足，從已做過題目中補充
+            for (let i = 0; i < recycledQuestions.length && selectedQuizData.length < desiredQuizLength; i++) {
+                selectedQuizData.push(recycledQuestions[i]);
+            }
+
+            // 如果最終選取的題目少於 desiredQuizLength，則從 fullQuizData 中隨機補充
+            // 這主要用於題目總數小於 desiredQuizLength 的情況
+            if (selectedQuizData.length < desiredQuizLength && fullQuizData.length > 0) {
+                const missingCount = desiredQuizLength - selectedQuizData.length;
+                const remainingQuestions = shuffleArray([...fullQuizData]); // 重新洗牌所有題目
+                const currentSelectedIds = new Set(selectedQuizData.map(q => getQuestionIdentifier(q)));
+
+                for (let i = 0; i < remainingQuestions.length && selectedQuizData.length < desiredQuizLength; i++) {
+                    const question = remainingQuestions[i];
+                    const questionId = getQuestionIdentifier(question);
+                    if (!currentSelectedIds.has(questionId)) {
+                        selectedQuizData.push(question);
+                        currentSelectedIds.add(questionId); // 更新已選取ID集合
+                    }
+                }
+            }
+
+            // 最後，更新 localStorage 中的 playedQuestionIds
+            const currentQuizQuestionIds = selectedQuizData.map(q => getQuestionIdentifier(q));
+            localStorage.setItem(playedQuestionIdsKey, JSON.stringify(currentQuizQuestionIds));
+
+            console.log(`為科目 ${currentSubjectId} 選取了 ${selectedQuizData.length} 道題目。其中有 ${newQuestions.length} 道新題目，${recycledQuestions.length} 道重複題目。`);
         }
+
 
         /**
          * 載入並顯示當前問題及其選項。
@@ -2153,7 +2224,7 @@ D) ${currentQuestionData.options[3]}
          */
         function showConfirmationModal(title, message, onConfirmCallback, isAlert = false) {
             const modalTitle = confirmationModalOverlay.querySelector('.confirmation-modal-title');
-            const modalMessage = confirmationModalModalOverlay.querySelector('.confirmation-modal-message');
+            const modalMessage = confirmationModalOverlay.querySelector('.confirmation-modal-message');
             const modalButtons = confirmationModalOverlay.querySelector('.confirmation-modal-buttons');
 
             modalTitle.textContent = title;
@@ -2671,8 +2742,7 @@ D) ${currentQuestionData.options[3]}
                 shareText += `\n我答錯了 ${incorrectQuestions.length} 題，繼續努力！`;
             } else {
                 shareText += `\n恭喜我，沒有答錯的題目！`;
-            }
-            shareText += `\n\n立即來挑戰：${window.location.href}`; // 包含當前網頁 URL
+            Text += `\n\n立即來挑戰：${window.location.href}`; // 包含當前網頁 URL
 
             try {
                 if (navigator.share) {
