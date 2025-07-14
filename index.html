@@ -653,6 +653,19 @@
             transform: translateY(-2px);
         }
 
+        /* User Count Display */
+        #user-count-display {
+            margin-top: 20px; /* Adjusted margin for placement */
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #4a5568;
+            background-color: #e2f8f5; /* Light teal background */
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 1px solid #38b2ac;
+            display: none; /* Hidden by default */
+        }
+
 
         @media (max-width: 640px) {
             .quiz-container {
@@ -735,6 +748,9 @@
                     非Canvas環境下，請點擊這裡啟動環境：<br>
                     <a href="https://g.co/gemini/share/0d8dc04f3cdf" target="_blank" class="text-blue-500 hover:underline font-semibold">前往 Gemini 對話分享連結</a>
                 </p>
+                <div id="user-count-display">
+                    <!-- User count will be displayed here -->
+                </div>
             </div>
 
             <!-- Existing: Initial Subject Selection Screen (now hidden initially) -->
@@ -838,15 +854,16 @@
     <script type="module">
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js"; 
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, getDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js"; 
 
         // Firebase 相關變數和初始化
         let app;
         let db;
         let auth;
         let currentEnvironment = ''; // 'canvas' or 'github-pages'
-        
+        let effectiveAppId = ''; // 儲存實際使用的 appId
+
         // 直接使用從 Firebase Console 複製的配置
         const firebaseConfig = {
           apiKey: "***REMOVED***",
@@ -888,10 +905,11 @@
         const quizSummary = document.getElementById('quiz-summary');
         const summaryScoreElement = document.getElementById('summary-score');
         const summaryMessageElement = document.getElementById('summary-message');
-        const incorrectQuestionsSummaryElement = document.getElementById('incorrect-questions-summary');
+        const incorrectQuestionsSummaryElement = document.getElementById('incorrect-questions-summary'); 
         const restartButton = document.getElementById('restart-button');
         const loadingIndicator = document.getElementById('loading-indicator');
         const questionCountsElement = document.getElementById('question-counts'); // 新增題目數量顯示元素
+        const userCountDisplay = document.getElementById('user-count-display'); // 新增用戶計數顯示元素
 
         // Gemini API 相關元素
         const askGeminiButton = document.getElementById('ask-gemini-button');
@@ -1200,6 +1218,7 @@
             quizContent.style.display = 'none'; // 隱藏測驗內容
             quizSummary.classList.remove('show'); // 隱藏總結
             questionCountsElement.style.display = 'none'; // 隱藏題目數量
+            userCountDisplay.style.display = 'none'; // 隱藏訪問人數
 
             try {
                 // 從 GitHub 原始內容 URL 載入題目
@@ -1224,6 +1243,7 @@
                 quizContent.style.display = 'none'; // Ensure quiz content remains hidden
                 initialSelectionScreen.style.display = 'flex'; // Allow user to try again
                 questionCountsElement.style.display = 'block'; // Show counts again if loading fails
+                userCountDisplay.style.display = 'block'; // Show user count again if loading fails
                 return; // Exit function if loading failed
             } finally {
                 // Only hide loading indicator if data was successfully loaded
@@ -1243,6 +1263,7 @@
             stopTimer(); // 確保計時器停止
             timerDisplay.style.display = 'none'; // 確保計時器隱藏
             questionCountsElement.style.display = 'block'; // 顯示題目數量
+            userCountDisplay.style.display = 'block'; // 顯示訪問人數
             // 不自動載入題目，等待用戶點擊「開始測驗」
         });
 
@@ -1487,12 +1508,40 @@ D) ${currentQuestionData.options[3]}
                 p.textContent = `${subjectNames[fileName]}：${allCounts[fileName]} 題`;
                 questionCountsElement.appendChild(p);
             }
-            questionCountsElement.style.display = 'block'; // Ensure counts are visible
+            // questionCountsElement.style.display = 'block'; // Ensure counts are visible - this is now handled by initial-selection-screen display
+        }
+
+        // 獲取並顯示獨立訪問人數
+        async function getAndDisplayUserCount() {
+            userCountDisplay.style.display = 'block'; // Show the display area
+            userCountDisplay.textContent = '正在載入訪問人數...'; // Loading message
+
+            // Check if Firebase is initialized and effectiveAppId is set
+            if (!db || !auth || !effectiveAppId) {
+                console.error("Firestore 或 Authentication 未初始化，無法獲取訪問人數。");
+                userCountDisplay.textContent = '無法載入訪問人數 (初始化中)。';
+                return;
+            }
+
+            try {
+                // 參考 user_visits 集合
+                const userVisitsCollectionRef = collection(db, 'artifacts', effectiveAppId, 'public', 'data', 'user_visits');
+                const querySnapshot = await getDocs(userVisitsCollectionRef);
+                const userCount = querySnapshot.size; // 獲取文件數量
+
+                userCountDisplay.textContent = `總訪問人數 (獨立訪客)：${userCount} 人`;
+            } catch (error) {
+                console.error("獲取訪問人數失敗:", error);
+                userCountDisplay.textContent = '無法載入訪問人數 (錯誤)。';
+                if (error.code === 'permission-denied') {
+                    console.error("錯誤提示: Firebase 權限不足。請檢查您的 Firestore 安全規則，確保允許讀取 `/artifacts/{appId}/public/data/user_visits`。");
+                }
+            }
         }
 
 
         // Firebase 初始化和使用者訪問記錄邏輯
-        async function initializeFirebase() {
+        async function initializeFirebase(source) {
             try {
                 console.log("Initializing Firebase with config:", firebaseConfig); 
                 
@@ -1501,41 +1550,41 @@ D) ${currentQuestionData.options[3]}
                     throw new Error("Firebase 配置不完整。請確保 apiKey, authDomain, projectId, 和 appId 都已提供。");
                 }
 
-                app = initializeApp(firebaseConfig); 
-                auth = getAuth(app); 
-                db = getFirestore(app); 
+                // 只有在 Firebase 尚未初始化時才初始化
+                if (!app) {
+                    app = initializeApp(firebaseConfig); 
+                    auth = getAuth(app); 
+                    db = getFirestore(app); 
+                }
 
                 let firebaseAppId = firebaseConfig.appId; // Default to hardcoded appId
 
-                if (currentEnvironment === 'canvas') {
+                if (source === 'initial_load' || currentEnvironment === 'canvas') {
                     if (typeof __app_id !== 'undefined') {
                         firebaseAppId = __app_id; // Use Canvas provided app ID
+                        currentEnvironment = 'canvas'; // Ensure environment is set
+                    } else if (source === 'initial_load') {
+                        // If not in Canvas and it's initial load, default to github-pages logic
+                        currentEnvironment = 'github-pages';
                     }
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                            console.log("Firebase initialized and user authenticated with custom token (in Canvas).");
-                        } else {
-                            await signInAnonymously(auth);
-                            console.log("Firebase initialized and user authenticated anonymously (in Canvas, no custom token).");
-                        }
-                    } catch (authError) {
-                        console.error("Custom token sign-in failed, attempting anonymous sign-in:", authError);
-                        await signInAnonymously(auth);
-                        console.log("Firebase initialized and user authenticated anonymously (fallback in Canvas).");
-                    }
-                } else { // currentEnvironment === 'github-pages'
+                    // For Canvas environment or initial load, always sign in anonymously
+                    await signInAnonymously(auth);
+                    console.log("Firebase initialized and user authenticated anonymously (in Canvas or initial load).");
+                } else if (currentEnvironment === 'github-pages') { // currentEnvironment === 'github-pages'
                     await signInAnonymously(auth); 
                     console.log("Firebase initialized and user authenticated anonymously (for GitHub Pages).");
                 }
 
                 // Use the determined appId for Firestore operations
-                const effectiveAppId = firebaseAppId;
+                effectiveAppId = firebaseAppId; // Store the effective appId globally
                 console.log("Using effective appId for Firestore:", effectiveAppId); 
 
                 // 確保使用者訪問記錄完成
                 await trackUserVisit(effectiveAppId); 
                 
+                // 在 Firebase 初始化並追蹤訪問後，獲取並顯示訪問人數
+                getAndDisplayUserCount();
+
             } catch (error) {
                 console.error("Firebase 初始化或登入失敗:", error);
                 // 根據錯誤類型提供更明確的訊息
@@ -1544,11 +1593,12 @@ D) ${currentQuestionData.options[3]}
                 } else {
                     console.error(`載入失敗: ${error.message || '未知錯誤。'}`);
                 }
+                userCountDisplay.textContent = '無法載入訪問人數 (初始化錯誤)。'; // Display error on screen
             }
         }
 
         // 追蹤使用者訪問
-        async function trackUserVisit(effectiveAppId) {
+        async function trackUserVisit(appIdToUse) {
             // 等待 auth 狀態就緒
             await new Promise(resolve => {
                 const unsubscribe = onAuthStateChanged(auth, user => { 
@@ -1568,9 +1618,9 @@ D) ${currentQuestionData.options[3]}
             // 增加短暫延遲，以確保 Firestore 數據同步（診斷用）
             await new Promise(resolve => setTimeout(resolve, 500)); 
 
-            // 使用公共數據路徑：/artifacts/{appId}/public/data/users_count/{userId}
+            // 使用公共數據路徑：/artifacts/{appId}/public/data/user_visits/{userId}
             // 這裡記錄每個唯一使用者的最後訪問時間，而不是總計數
-            const userDocRef = doc(collection(db, 'artifacts', effectiveAppId, 'public', 'data', 'user_visits'), userId); 
+            const userDocRef = doc(collection(db, 'artifacts', appIdToUse, 'public', 'data', 'user_visits'), userId); 
             console.log("Firestore document path for write:", userDocRef.path); // Log the full path for debugging
             console.log("Attempting Firestore operation with UID:", userId); // Log UID right before operation
 
@@ -1604,25 +1654,32 @@ D) ${currentQuestionData.options[3]}
             currentEnvironment = 'canvas';
             environmentSelectionScreen.style.display = 'none';
             initialSelectionScreen.style.display = 'flex';
-            initializeFirebase(); // Initialize Firebase based on selected environment
-            getQuestionCounts(); // Fetch and display question counts
+            // Firebase 已經在 DOMContentLoaded 時初始化，這裡只需要確保環境變數設置正確
+            // 並重新顯示題目數量和訪問人數 (因為它們在 quiz 啟動時會被隱藏)
+            getQuestionCounts(); 
+            getAndDisplayUserCount(); // Re-display user count
         });
 
         selectGithubEnvButton.addEventListener('click', () => {
             currentEnvironment = 'github-pages';
             environmentSelectionScreen.style.display = 'none';
             initialSelectionScreen.style.display = 'flex';
-            initializeFirebase(); // Initialize Firebase based on selected environment
-            getQuestionCounts(); // Fetch and display question counts
+            // Firebase 已經在 DOMContentLoaded 時初始化，這裡只需要確保環境變數設置正確
+            // 並重新顯示題目數量和訪問人數 (因為它們在 quiz 啟動時會被隱藏)
+            getQuestionCounts();
+            getAndDisplayUserCount(); // Re-display user count
         });
 
-        // 頁面載入時只顯示環境選擇畫面
+        // 頁面載入時只顯示環境選擇畫面，並初始化 Firebase 和訪問人數
         document.addEventListener('DOMContentLoaded', () => {
             environmentSelectionScreen.style.display = 'flex';
             initialSelectionScreen.style.display = 'none';
             quizContent.style.display = 'none';
             quizSummary.classList.remove('show');
             timerDisplay.style.display = 'none'; // Hide timer on initial load
+            
+            // 在頁面載入時就初始化 Firebase 並追蹤訪問，然後顯示訪問人數
+            initializeFirebase('initial_load');
         });
     </script>
 </body>
