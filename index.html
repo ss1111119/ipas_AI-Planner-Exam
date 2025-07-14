@@ -1323,10 +1323,11 @@
         let selectedQuizData = []; // 儲存隨機選取的 50 題
         let currentQuestionIndex = 0;
         let userAnswers = [];
-        let score = 0;
+        let score = 0; // 儲存答對題數
         let incorrectQuestions = []; // 儲存答錯的題目
         const optionLabels = ['A', 'B', 'C', 'D']; // 選項標籤 (A, B, C, D)
         let loadedProgressData = null; // 儲存從 Firestore 載入的進度資料
+        const POINTS_PER_QUESTION = 2.5; // 每題分數
 
         // DOM 元素獲取
         const environmentSelectionScreen = document.getElementById('environment-selection-screen');
@@ -1882,7 +1883,7 @@
             }
 
             // 將分數儲存到排行榜
-            await saveQuizScoreToLeaderboard();
+            await saveQuizScoreToLeaderboard(finalScorePoints); // 傳遞計算後的總分;
         }
 
         /**
@@ -2553,33 +2554,58 @@ D) ${currentQuestionData.options[3]}
         /**
          * 將測驗分數儲存到排行榜。
          */
-        async function saveQuizScoreToLeaderboard() {
-            if (!db || !currentUserId || !effectiveAppId) {
-                console.warn("無法儲存排行榜分數：Firebase 未初始化或用戶 ID 無效。");
+        async function saveQuizScoreToLeaderboard(finalScorePoints) {
+            if (!isAuthReady || !db || !currentUserId || !effectiveAppId) {
+                console.warn("無法儲存排行榜分數：認證未準備就緒或必要參數缺失。");
                 return;
             }
 
-            // 排行榜資料儲存在公共路徑：/artifacts/{appId}/public/data/leaderboard_scores
+                        // 排行榜資料儲存在公共路徑：/artifacts/{appId}/public/data/leaderboard_scores
             const leaderboardCollectionRef = collection(db, 'artifacts', effectiveAppId, 'public', 'data', 'leaderboard_scores');
+            console.log("Firestore collection path for leaderboard write:", leaderboardCollectionRef.path);
             
             try {
-                const scoreData = {
-                    userId: currentUserId,
-                    displayName: currentUserDisplayName || '匿名用戶',
-                    score: score,
-                    totalQuestions: selectedQuizData.length,
-                    subject: subjectNames[subjectSelect.value],
-                    timestamp: serverTimestamp()
-                };
+                // 查詢排行榜分數，按分數降序排列，分數相同則按時間升序排列，限制前 100 名
+                const q = query(leaderboardCollectionRef, orderBy('score', 'desc'), orderBy('timestamp', 'asc'), limit(100));
+                console.log("fetchLeaderboardScores: 準備執行 getDocs 查詢...");
+                const querySnapshot = await getDocs(q);
+                console.log("fetchLeaderboardScores: getDocs 查詢已完成。");
 
-                // 添加一個新文件，ID 由 Firestore 自動生成
-                await addDoc(leaderboardCollectionRef, scoreData);
-                console.log("測驗分數已儲存到排行榜。");
-            } catch (error) {
-                console.error("儲存測驗分數到排行榜失敗:", error);
-                if (error.code === 'permission-denied') {
-                    console.error("錯誤提示: Firebase 權限不足。請檢查您的 Firestore 安全規則，確保允許使用者在路徑 `/artifacts/{appId}/public/data/leaderboard_scores` 上進行寫入操作。");
+                leaderboardList.innerHTML = ''; // 清空之前的列表
+                if (querySnapshot.empty) {
+                    leaderboardList.innerHTML = '<li>目前沒有排行榜資料。</li>';
+                    console.log("fetchLeaderboardScores: 排行榜為空。");
+                    return;
                 }
+
+                let rank = 1;
+                querySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const listItem = document.createElement('li');
+                    const timestampDate = data.timestamp ? data.timestamp.toDate() : new Date(); // 將時間戳轉換為 Date 物件
+                    const formattedDate = timestampDate.toLocaleString('zh-TW', {
+                        year: 'numeric', month: 'numeric', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+
+                    listItem.innerHTML = `
+                        <span class="leaderboard-rank">${rank}.</span>
+                        <span class="leaderboard-name">${data.displayName} (${data.subject})</span>
+                        <span class="leaderboard-score">${data.score} 分</span> <!-- 顯示計算後的總分數 -->
+                        <span class="text-sm text-gray-500 ml-4">${formattedDate}</span>
+                    `;
+                    leaderboardList.appendChild(listItem);
+                    rank++;
+                });
+                console.log("fetchLeaderboardScores: 排行榜資料已顯示。");
+            } catch (error) {
+                console.error("fetchLeaderboardScores: 獲取排行榜分數失敗:", error);
+                leaderboardList.innerHTML = '<li>載入排行榜失敗 (錯誤)。</li>';
+                if (error.code === 'permission-denied') {
+                    console.error("錯誤提示: Firebase 權限不足。請檢查您的 Firestore 安全規則，確保允許讀取 `/artifacts/{appId}/public/data/leaderboard_scores`。");
+                }
+            } finally {
+                hideGlobalLoading(); // 無論成功或失敗，都隱藏載入中
             }
         }
 
