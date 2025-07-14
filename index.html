@@ -2332,18 +2332,21 @@ D) ${currentQuestionData.options[3]}
 
         // 使用者 ID 輸入模態框的確認按鈕
         submitUserIdButton.addEventListener('click', async () => {
-            const enteredDisplayName = userIdInput.value.trim();
-            if (enteredDisplayName) {
-                currentUserDisplayName = enteredDisplayName;
-                localStorage.setItem('user_defined_display_name', enteredDisplayName); // Store in localStorage
-                userIdModalOverlay.style.display = 'none'; // 隱藏模態框
-                console.log("User display name set and stored:", currentUserDisplayName);
-                // Save to Firestore profile immediately
-                await saveUserDisplayNameToFirestore(currentUserId, currentUserDisplayName);
-                await proceedAfterUserIdSet(); // 繼續處理認證和資料載入
-            } else {
-                showConfirmationModal('提示', '請輸入一個有效的使用者暱稱。', null, true);
+            let enteredDisplayName = userIdInput.value.trim();
+            // 如果沒有輸入暱稱，則給予預設稱呼
+            if (!enteredDisplayName) {
+                enteredDisplayName = '陌生人'; // 或者您可以使用 '匿名訪客', '未命名用戶' 等
             }
+            
+            showGlobalLoading(); // 顯示載入中
+            currentUserDisplayName = enteredDisplayName;
+            localStorage.setItem('user_defined_display_name', enteredDisplayName); // Store in localStorage
+            userIdModalOverlay.style.display = 'none'; // 隱藏模態框
+            console.log("User display name set and stored:", currentUserDisplayName);
+            // Save to Firestore profile immediately
+            await saveUserDisplayNameToFirestore(currentUserId, currentUserDisplayName);
+            await proceedAfterUserIdSet(); // 繼續處理認證和資料載入
+            hideGlobalLoading(); // 隱藏載入中
         });
 
         // 使用者 ID 輸入模態框的取消按鈕
