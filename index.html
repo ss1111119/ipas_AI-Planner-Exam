@@ -2716,6 +2716,22 @@ D) ${currentQuestionData.options[3]}
             // 為分享結果按鈕添加事件監聽器 (確保在 DOMContentLoaded 後執行)
             shareResultsButton.addEventListener('click', shareQuizResults);
 
+            // 為排行榜按鈕添加事件監聽器
+            viewLeaderboardButton.addEventListener('click', async () => {
+                leaderboardModalOverlay.style.display = 'flex'; // 顯示排行榜模態框
+                await fetchLeaderboardScores(); // 載入並顯示排行榜分數
+            });
+            viewLeaderboardButtonSummary.addEventListener('click', async () => {
+                leaderboardModalOverlay.style.display = 'flex'; // 顯示排行榜模態框
+                await fetchLeaderboardScores(); // 載入並顯示排行榜分數
+            });
+
+            // 為排行榜模態框的關閉按鈕添加事件監聽器
+            leaderboardModalClose.addEventListener('click', () => {
+                leaderboardModalOverlay.style.display = 'none'; // 隱藏排行榜模態框
+            });
+
+
             // 添加 beforeunload 監聽器以在頁面關閉前保存進度
             window.addEventListener('beforeunload', async () => {
                 if (quizContent.style.display === 'block' && currentUserId && selectedQuizData.length > 0) {
