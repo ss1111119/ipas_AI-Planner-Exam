@@ -2742,7 +2742,8 @@ D) ${currentQuestionData.options[3]}
                 shareText += `\n我答錯了 ${incorrectQuestions.length} 題，繼續努力！`;
             } else {
                 shareText += `\n恭喜我，沒有答錯的題目！`;
-            Text += `\n\n立即來挑戰：${window.location.href}`; // 包含當前網頁 URL
+            } // Added closing brace here
+            shareText += `\n\n立即來挑戰：${window.location.href}`; // Changed 'Text' to 'shareText'
 
             try {
                 if (navigator.share) {
