@@ -2075,9 +2075,8 @@
             stopTimer(); // Ensure timer stops
             timerDisplay.style.display = 'none';
             // Re-fetch and display visitor count
-            getAndDisplayUserCount().finally(() => {
-                hideGlobalLoading(); // Ensure loading is hidden after reading
-            }); 
+            // Removed getAndDisplayUserCount() here, as it will be called after auth in proceedAfterUserIdSet
+            hideGlobalLoading(); // Ensure loading is hidden after reading
         });
 
         // "Start Quiz" button click event listener (triggered from subject selection screen)
@@ -2622,6 +2621,7 @@ D) ${currentQuestionData.options[3]}
             if (currentUserId && isAuthReady) {
                 console.log("proceedAfterUserIdSet: db:", db, "effectiveAppId:", effectiveAppId);
                 await trackUserVisit(effectiveAppId); // Track user visit
+                await getAndDisplayUserCount(); // Now safe to call after auth is ready
                 environmentSelectionScreen.style.display = 'none';
                 initialSelectionScreen.style.display = 'flex';
                 subjectSelectionArea.style.display = 'block'; // Always show subject selection
@@ -2673,7 +2673,7 @@ D) ${currentQuestionData.options[3]}
             environmentSelectionScreen.style.display = 'flex';
             initialSelectionScreen.style.display = 'none';
             userCountDisplay.style.display = 'block';
-            getAndDisplayUserCount(); // Update user count when returning to environment selection screen
+            // Removed getAndDisplayUserCount() here, as it will be called after auth in proceedAfterUserIdSet
         });
 
         /**
@@ -2841,8 +2841,7 @@ D) ${currentQuestionData.options[3]}
             
             // Initialize Firebase services
             await initializeFirebaseServices();
-            // Immediately fetch and display visitor count
-            await getAndDisplayUserCount();
+            // Removed getAndDisplayUserCount() here, as it will be called after auth in proceedAfterUserIdSet
             hideGlobalLoading(); // Hide loading indicator after DOMContentLoaded completes
 
             // Add event listener for share results button (ensure executed after DOMContentLoaded)
