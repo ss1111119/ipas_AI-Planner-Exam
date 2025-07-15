@@ -720,7 +720,7 @@
             padding: 10px 20px;
             border-radius: 10px;
             border: 1px solid #38b2ac;
-            display: block;
+            display: none; /* 預設隱藏，在認證後顯示 */
         }
 
         /* 繼續測驗提示樣式 */
@@ -737,7 +737,7 @@
             font-weight: 600;
             color: #2d3748;
         }
-        /* 繼續測驗按鈕容器樣式 */
+        /* 繼續和開始新測驗按鈕容器樣式 */
         .continue-quiz-buttons {
             display: flex;
             flex-direction: column;
@@ -1137,14 +1137,18 @@
                     非Canvas環境下，請點擊這裡啟動環境：<br>
                     <a href="https://g.co/gemini/share/0d8dc04f3cdf" target="_blank" class="text-blue-500 hover:underline font-semibold">前往 Gemini 對話分享連結</a>
                 </p>
-                <div id="user-count-display">
-                    <!-- 用戶計數將在此顯示 -->
+                <div id="last-updated-display" class="mt-4 text-gray-600 text-sm">
+                    <!-- 最後更新時間將在此顯示 -->
                 </div>
             </div>
 
             <!-- 初始科目選擇畫面 (預設隱藏) -->
             <div id="initial-selection-screen" style="display: none;">
                 <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">iPAS初級AI應用規劃師模擬測驗</h1>
+
+                <div id="user-count-display">
+                    <!-- 用戶計數將在此顯示 -->
+                </div>
 
                 <!-- 繼續測驗提示 -->
                 <div id="continue-quiz-prompt">
@@ -1362,7 +1366,8 @@
         const restartButton = document.getElementById('restart-button');
         const loadingIndicator = document.getElementById('loading-indicator');
         const questionCountsElement = document.getElementById('question-counts');
-        const userCountDisplay = document.getElementById('user-count-display');
+        const userCountDisplay = document.getElementById('user-count-display'); // Now on initial-selection-screen
+        const lastUpdatedDisplay = document.getElementById('last-updated-display'); // New element on environment-selection-screen
 
         // Gemini API related DOM elements
         const askGeminiButton = document.getElementById('ask-gemini-button');
@@ -1999,7 +2004,7 @@
             quizContent.style.display = 'none';
             quizSummary.classList.remove('show');
             questionCountsElement.style.display = 'none';
-            userCountDisplay.style.display = 'none';
+            userCountDisplay.style.display = 'none'; // Hide user count when quiz starts
             continueQuizPrompt.style.display = 'none';
             subjectSelectionArea.style.display = 'none';
             viewLeaderboardButton.style.display = 'none';
@@ -2050,7 +2055,7 @@
                 initialSelectionScreen.style.display = 'flex';
                 subjectSelectionArea.style.display = 'block';
                 questionCountsElement.style.display = 'block';
-                userCountDisplay.style.display = 'block';
+                userCountDisplay.style.display = 'block'; // Show user count on error
                 continueQuizPrompt.style.display = 'none';
                 viewLeaderboardButton.style.display = 'block';
                 return;
@@ -2074,10 +2079,9 @@
             askGeminiButton.style.display = 'none';
             stopTimer(); // Ensure timer stops
             timerDisplay.style.display = 'none';
-            // Re-fetch and display visitor count
-            getAndDisplayUserCount().finally(() => { // Re-added here
-                hideGlobalLoading(); // Ensure loading is hidden after reading
-            }); 
+            userCountDisplay.style.display = 'none'; // Hide user count when returning to env selection
+            // No need to call getAndDisplayUserCount() here, it will be called after env selection
+            hideGlobalLoading(); // Ensure loading is hidden
         });
 
         // "Start Quiz" button click event listener (triggered from subject selection screen)
@@ -2458,7 +2462,6 @@ D) ${currentQuestionData.options[3]}
 
             } catch (error) {
                 console.error("initializeFirebaseServices: Firebase initialization failed:", error);
-                userCountDisplay.textContent = '無法載入訪問人數 (初始化錯誤)。';
                 // If Firebase initialization fails, directly show subject selection screen
                 environmentSelectionScreen.style.display = 'none';
                 initialSelectionScreen.style.display = 'flex';
@@ -2466,6 +2469,8 @@ D) ${currentQuestionData.options[3]}
                 subjectSelectionArea.style.display = 'block';
                 getQuestionCounts(); // Still try to display question counts
                 viewLeaderboardButton.style.display = 'block';
+                userCountDisplay.style.display = 'block'; // Ensure user count is visible on this screen
+                userCountDisplay.textContent = '無法載入訪問人數 (初始化錯誤)。'; // Display error message
             }
         }
 
@@ -2553,7 +2558,7 @@ D) ${currentQuestionData.options[3]}
                         }
                     }
                 } else {
-                    console.log("Canvas: No custom token, attempting anonymous sign-in...");
+                    console.log("handleUserAuthenticationAndDataLoad: Canvas: No custom token, attempting anonymous sign-in...");
                     try {
                         const userCredential = await signInAnonymously(auth);
                         firebaseAuthUid = userCredential.user.uid;
@@ -2622,13 +2627,17 @@ D) ${currentQuestionData.options[3]}
             if (currentUserId && isAuthReady) {
                 console.log("proceedAfterUserIdSet: db:", db, "effectiveAppId:", effectiveAppId);
                 await trackUserVisit(effectiveAppId); // Track user visit
-                await getAndDisplayUserCount(); // Now safe to call after auth is ready
+                
                 environmentSelectionScreen.style.display = 'none';
                 initialSelectionScreen.style.display = 'flex';
                 subjectSelectionArea.style.display = 'block'; // Always show subject selection
                 getQuestionCounts(); // Display question counts
                 viewLeaderboardButton.style.display = 'block'; // Show leaderboard button on initial screen
                 await checkAndDisplaySavedProgress(); // Check for saved progress
+                
+                // Now that we are on the initial selection screen, display user count
+                userCountDisplay.style.display = 'block'; // Ensure it's visible
+                await getAndDisplayUserCount(); // Fetch and display user count
             } else {
                 console.error("proceedAfterUserIdSet: Unable to set currentUserId or auth not ready.");
                 showConfirmationModal('錯誤', '無法設定使用者 ID 或認證未準備就緒，請重新整理頁面或稍後再試。', null, true);
@@ -2638,13 +2647,13 @@ D) ${currentQuestionData.options[3]}
         // Environment selection button click event listeners
         selectCanvasEnvButton.addEventListener('click', async () => {
             currentEnvironment = 'canvas';
-            userCountDisplay.style.display = 'block'; // Ensure user count is displayed on environment selection screen
+            // userCountDisplay.style.display = 'block'; // Removed from here
             await handleUserAuthenticationAndDataLoad();
         });
 
         selectGithubEnvButton.addEventListener('click', async () => {
             currentEnvironment = 'github-pages';
-            userCountDisplay.style.display = 'block'; // Ensure user count is displayed on environment selection screen
+            // userCountDisplay.style.display = 'block'; // Removed from here
             await handleUserAuthenticationAndDataLoad();
         });
 
@@ -2673,8 +2682,8 @@ D) ${currentQuestionData.options[3]}
             // If user cancels, return to environment selection screen
             environmentSelectionScreen.style.display = 'flex';
             initialSelectionScreen.style.display = 'none';
-            userCountDisplay.style.display = 'block';
-            getAndDisplayUserCount(); // Re-added here
+            // userCountDisplay.style.display = 'block'; // Removed from here
+            // getAndDisplayUserCount(); // Removed from here
         });
 
         /**
@@ -2839,12 +2848,16 @@ D) ${currentQuestionData.options[3]}
             timerDisplay.style.display = 'none';
             userIdModalOverlay.style.display = 'none';
             leaderboardModalOverlay.style.display = 'none';
-            userCountDisplay.style.display = 'block'; // Ensure it's visible from the start
+            
+            // Initially hide user count display as it's now on a different screen
+            userCountDisplay.style.display = 'none'; 
+
+            // Display last updated time on the environment selection screen
+            lastUpdatedDisplay.textContent = '應用程式載入時間：' + new Date().toLocaleString('zh-TW');
             
             // Initialize Firebase services
             await initializeFirebaseServices();
-            // Immediately fetch and display visitor count (will show "loading" or "error" initially, then update)
-            await getAndDisplayUserCount(); 
+            // No initial getAndDisplayUserCount() here anymore.
             hideGlobalLoading(); // Hide loading indicator after DOMContentLoaded completes
 
             // Add event listener for share results button (ensure executed after DOMContentLoaded)
