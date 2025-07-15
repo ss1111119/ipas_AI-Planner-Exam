@@ -372,6 +372,53 @@
             margin-top: 10px;
         }
 
+        /* 新增：所有題目總結區塊樣式 */
+        .all-questions-summary {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px dashed #cbd5e0;
+        }
+        /* 新增：所有題目項目樣式 */
+        .all-questions-summary .question-item {
+            background-color: #f7fafc; /* 淺灰色 */
+            border: 1px solid #e2e8f0; /* 淺邊框 */
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .all-questions-summary .question-item.correct {
+            background-color: #e6fffa; /* 淺綠色 */
+            border-color: #38b2ac; /* 青綠色 */
+        }
+        .all-questions-summary .question-item.incorrect {
+            background-color: #fde8e8; /* 淺紅色 */
+            border-color: #ef4444; /* 紅色 */
+        }
+        /* 新增：問題文本樣式 */
+        .all-questions-summary .question-text-all {
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        /* 新增：您的答案樣式 */
+        .all-questions-summary .your-answer-text {
+            font-weight: 600;
+            color: #4299e1; /* 藍色 */
+            margin-top: 5px;
+        }
+        /* 新增：正確答案樣式 */
+        .all-questions-summary .correct-answer-text-all {
+            font-weight: 600;
+            color: #2f855a; /* 綠色 */
+            margin-top: 5px;
+        }
+        /* 新增：解釋文本樣式 */
+        .all-questions-summary .explanation-text-all {
+            font-size: 0.95rem;
+            color: #6b46c1; /* 紫色 */
+            margin-top: 10px;
+        }
+
         /* Gemini 模態框疊加層樣式 */
         .gemini-modal-overlay {
             position: fixed;
@@ -998,7 +1045,28 @@
             background-color: #319795;
             transform: translateY(-2px);
         }
-
+        /* 新增：模式選擇按鈕樣式 */
+        .mode-button {
+            background-color: #4299e1; /* 藍色 */
+            color: white;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            border: none;
+            box-shadow: 0 4px 10px rgba(66, 153, 225, 0.3);
+        }
+        .mode-button:hover:not(.selected-mode) {
+            background-color: #3182ce;
+            transform: translateY(-2px);
+        }
+        .mode-button.selected-mode {
+            background-color: #2b6cb0; /* 更深的藍色 */
+            cursor: default;
+            box-shadow: 0 4px 10px rgba(43, 108, 176, 0.4);
+        }
         /* 響應式設計調整 */
         @media (max-width: 640px) {
             .quiz-container {
@@ -1160,8 +1228,14 @@
                     </div>
                 </div>
 
+                <!-- 模式選擇區域 -->
+                <div id="mode-selection-area" class="flex flex-col sm:flex-row gap-4 mb-6">
+                    <button id="practice-mode-button" class="mode-button selected-mode">練習模式</button>
+                    <button id="exam-mode-button" class="mode-button">正式考試</button>
+                </div>
+
                 <!-- 科目選擇區域 (預設隱藏) -->
-                <div id="subject-selection-area" style="display: none;">
+                <div id="subject-selection-area">
                     <div class="subject-selection">
                         <label for="subject-select" class="sr-only">選擇科目</label>
                         <select id="subject-select">
@@ -1203,7 +1277,7 @@
                 <div class="summary-title">測驗結果</div>
                 <div class="summary-score" id="summary-score"></div>
                 <div class="summary-message" id="summary-message"></div>
-                <div id="incorrect-questions-summary" class="mt-8 text-left"></div>
+                <div id="all-questions-summary" class="all-questions-summary text-left"></div> <!-- 新增：所有題目總結區塊 -->
                 <button id="restart-button" class="restart-button">重新測驗</button>
                 <button id="view-leaderboard-button-summary" class="view-leaderboard-button mt-4">查看排行榜</button> <!-- 測驗結果頁面的排行榜按鈕 -->
                 <button id="share-results-button" class="share-results-button mt-4">分享結果</button> <!-- 新增分享結果按鈕 -->
@@ -1334,6 +1408,7 @@
         const optionLabels = ['A', 'B', 'C', 'D']; // Option labels (A, B, C, D)
         let loadedProgressData = null; // Stores progress data loaded from Firestore
         const POINTS_PER_QUESTION = 2; // Points per question
+        let quizMode = 'practice'; // New: Default to 'practice' mode
 
         // DOM element retrieval
         const environmentSelectionScreen = document.getElementById('environment-selection-screen');
@@ -1346,6 +1421,10 @@
         const continueQuizMessage = document.getElementById('continue-quiz-message');
         const continueQuizButton = document.getElementById('continue-quiz-button');
         const startNewQuizButton = document.getElementById('start-new-quiz-button');
+
+        const modeSelectionArea = document.getElementById('mode-selection-area'); // New: Mode selection area
+        const practiceModeButton = document.getElementById('practice-mode-button'); // New: Practice mode button
+        const examModeButton = document.getElementById('exam-mode-button'); // New: Exam mode button
 
         const subjectSelect = document.getElementById('subject-select');
         const startQuizButton = document.getElementById('start-quiz-button');
@@ -1363,7 +1442,7 @@
         const quizSummary = document.getElementById('quiz-summary');
         const summaryScoreElement = document.getElementById('summary-score');
         const summaryMessageElement = document.getElementById('summary-message');
-        const incorrectQuestionsSummaryElement = document.getElementById('incorrect-questions-summary'); 
+        const allQuestionsSummaryElement = document.getElementById('all-questions-summary'); // All questions summary
         const restartButton = document.getElementById('restart-button');
         const loadingIndicator = document.getElementById('loading-indicator');
         const questionCountsElement = document.getElementById('question-counts');
@@ -1620,10 +1699,12 @@
                 continueQuizMessage.textContent = `您有未完成的「${subjectNames[defaultSubject]}」測驗進度 (暱稱: ${currentUserDisplayName || '匿名用戶'})。`;
                 continueQuizPrompt.style.display = 'flex'; // Show continue quiz prompt
                 subjectSelectionArea.style.display = 'none'; // Hide subject selection area
+                modeSelectionArea.style.display = 'none'; // Hide mode selection area
                 console.log("checkAndDisplaySavedProgress: Found saved progress.");
             } else {
                 continueQuizPrompt.style.display = 'none'; // Hide continue quiz prompt
                 subjectSelectionArea.style.display = 'block'; // Show subject selection area
+                modeSelectionArea.style.display = 'flex'; // Show mode selection area
                 getQuestionCounts(); // Display question counts
                 console.log("checkAndDisplaySavedProgress: No saved progress found or progress is empty.");
             }
@@ -1763,19 +1844,28 @@
                     button.classList.add('disabled'); // Disable all options
                     if (button.dataset.originalLabelForContent === selectedOriginalLabel) {
                         button.classList.add('selected');
-                        if (selectedOriginalLabel === correctOptionLabel) {
-                            button.classList.add('correct');
-                        } else {
-                            button.classList.add('incorrect');
+                        // In practice mode, show correct/incorrect immediately
+                        if (quizMode === 'practice') {
+                            if (selectedOriginalLabel === correctOptionLabel) {
+                                button.classList.add('correct');
+                            } else {
+                                button.classList.add('incorrect');
+                            }
                         }
                     }
-                    // Mark correct answer
-                    if (button.dataset.originalLabelForContent === correctOptionLabel) {
+                    // In practice mode, mark correct answer
+                    if (quizMode === 'practice' && button.dataset.originalLabelForContent === correctOptionLabel) {
                         button.classList.add('correct');
                     }
                 });
-                showFeedback(selectedQuizData[currentQuestionIndex].explanation, userAnswers[currentQuestionIndex].isCorrect);
-                askGeminiButton.style.display = 'inline-block'; // Show Gemini button
+                // Only show feedback and Gemini button in practice mode
+                if (quizMode === 'practice') {
+                    showFeedback(selectedQuizData[currentQuestionIndex].explanation, userAnswers[currentQuestionIndex].isCorrect);
+                    askGeminiButton.style.display = 'inline-block'; // Show Gemini button
+                } else {
+                    hideFeedback();
+                    askGeminiButton.style.display = 'none'; // Hide Gemini button in exam mode
+                }
             } else {
                 hideFeedback();
                 askGeminiButton.style.display = 'none'; // Hide Gemini button
@@ -1788,7 +1878,7 @@
             geminiLoadingIndicator.style.display = 'none';
 
             updateNavigationButtons();
-            console.log(`loadQuestion: Loaded question ${currentQuestionIndex + 1}. Current score: ${score}, User answers count: ${userAnswers.length}, Incorrect questions count: ${incorrectQuestions.length}`);
+            console.log(`loadQuestion: Loaded question ${currentQuestionIndex + 1}. Current score: ${score}, User answers count: ${userAnswers.length}, Incorrect questions count: ${incorrectQuestions.length}, Mode: ${quizMode}`);
         }
 
         /**
@@ -1821,12 +1911,10 @@
             const isCorrect = (selectedOriginalLabel === correctOptionLabel);
 
             if (isCorrect) {
-                selectedButton.classList.add('correct');
                 score++; // Increment score if correct
                 console.log(`selectOption: Question ${currentQuestionIndex + 1} correct. Current score: ${score}`);
             } else {
-                selectedButton.classList.add('incorrect');
-                // Record incorrectly answered question
+                // Record incorrectly answered question (only for internal tracking)
                 incorrectQuestions.push({
                     question: questionData.question,
                     selectedOption: selectedOriginalLabel, // Store original label
@@ -1838,21 +1926,35 @@
                 console.log(`selectOption: Question ${currentQuestionIndex + 1} incorrect. Current score: ${score}, Incorrect questions count: ${incorrectQuestions.length}`);
             }
 
-            // Mark correct answer
-            buttons.forEach(button => {
-                if (button.dataset.originalLabelForContent === correctOptionLabel) {
-                    button.classList.add('correct');
-                }
-            });
-
             // Store user's answer
             userAnswers[currentQuestionIndex] = {
                 selectedOriginalLabel: selectedOriginalLabel,
-                isCorrect: isCorrect
+                isCorrect: isCorrect,
+                selectedOptionContent: selectedButton.dataset.optionContent, // Store content of selected option
+                correctOptionContent: correctOptionContent // Store content of correct option
             };
 
-            showFeedback(questionData.explanation, isCorrect);
-            askGeminiButton.style.display = 'inline-block'; // Show Gemini button
+            // Apply visual feedback and show explanation only in practice mode
+            if (quizMode === 'practice') {
+                if (isCorrect) {
+                    selectedButton.classList.add('correct');
+                } else {
+                    selectedButton.classList.add('incorrect');
+                }
+                // Mark correct answer
+                buttons.forEach(button => {
+                    if (button.dataset.originalLabelForContent === correctOptionLabel) {
+                        button.classList.add('correct');
+                    }
+                });
+                showFeedback(questionData.explanation, isCorrect);
+                askGeminiButton.style.display = 'inline-block'; // Show Gemini button
+            } else {
+                // In exam mode, hide feedback and Gemini button
+                hideFeedback();
+                askGeminiButton.style.display = 'none';
+            }
+
             updateNavigationButtons(); // Enable next question button
             await saveQuizProgress(subjectSelect.value); // Save progress after each selection
         }
@@ -1936,7 +2038,7 @@
         });
 
         /**
-         * Displays the quiz summary page, calculates score, and shows incorrect questions review.
+         * Displays the quiz summary page, calculates score, and shows all questions review.
          */
         async function showQuizSummary() {
             stopTimer(); // Stop the timer
@@ -1960,37 +2062,47 @@
             summaryMessageElement.textContent = message;
 
             console.log(`showQuizSummary: Final score (correct answers): ${score}, Total questions: ${selectedQuizData.length}, Final points: ${finalScorePoints}`);
-            console.log(`showQuizSummary: Incorrect questions count: ${incorrectQuestions.length}`, incorrectQuestions);
+            
+            // Display all questions review
+            allQuestionsSummaryElement.innerHTML = ''; // Clear previous content
+            const title = document.createElement('h3');
+            title.className = 'feedback-title text-xl mb-4';
+            title.textContent = '題目回顧';
+            allQuestionsSummaryElement.appendChild(title);
 
-            // Display incorrect questions review
-            incorrectQuestionsSummaryElement.innerHTML = ''; // Clear previous incorrect questions
-            if (incorrectQuestions.length > 0) {
-                const title = document.createElement('h3');
-                title.className = 'feedback-title text-xl mb-4';
-                title.textContent = '錯題回顧';
-                incorrectQuestionsSummaryElement.appendChild(title);
+            selectedQuizData.forEach((questionData, index) => {
+                const userAnswer = userAnswers[index];
+                const isAnswered = userAnswer !== undefined;
+                const isCorrect = isAnswered ? userAnswer.isCorrect : false;
 
-                incorrectQuestions.forEach((item, index) => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'incorrect-question-item bg-red-50 border-red-300 border-2 rounded-lg p-4 mb-4 shadow-sm'; 
-                    itemDiv.innerHTML = `
-                        <p class="question-text-incorrect text-red-800"><strong>${index + 1}. ${item.question}</strong></p>
-                        <p class="correct-answer-text text-green-700 mt-2">正確答案：${item.correctOptionContent}</p>
-                        <p class="explanation-text text-purple-700 mt-2">${item.explanation}</p>
-                    `;
-                    incorrectQuestionsSummaryElement.appendChild(itemDiv);
-                });
-            } else {
-                const noIncorrect = document.createElement('p');
-                noIncorrect.className = 'feedback-text';
-                noIncorrect.textContent = '恭喜您，沒有答錯的題目！';
-                incorrectQuestionsSummaryElement.appendChild(noIncorrect);
-            }
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `question-item ${isAnswered ? (isCorrect ? 'correct' : 'incorrect') : ''} bg-white border rounded-lg p-4 mb-4 shadow-sm`;
+
+                let yourAnswerHtml = '';
+                if (isAnswered) {
+                    yourAnswerHtml = `<p class="your-answer-text ${isCorrect ? 'text-green-700' : 'text-blue-700'}">您的答案：${userAnswer.selectedOptionContent}</p>`;
+                } else {
+                    yourAnswerHtml = `<p class="your-answer-text text-gray-500">您未作答。</p>`;
+                }
+
+                itemDiv.innerHTML = `
+                    <p class="question-text-all"><strong>${index + 1}. ${questionData.question}</strong></p>
+                    ${yourAnswerHtml}
+                    <p class="correct-answer-text-all text-green-700 mt-2">正確答案：${questionData.options[optionLabels.indexOf(questionData.answer)]}</p>
+                    <p class="explanation-text-all text-purple-700 mt-2">${questionData.explanation}</p>
+                `;
+                allQuestionsSummaryElement.appendChild(itemDiv);
+            });
 
             // Save score to leaderboard
             await saveQuizScoreToLeaderboard(finalScorePoints); // Pass the calculated total score
             // Clear progress for the current subject as the quiz is completed
             await clearQuizProgress(subjectSelect.value);
+
+            // In exam mode, show the Ask Gemini button in the summary
+            if (quizMode === 'exam') {
+                askGeminiButton.style.display = 'inline-block';
+            }
         }
 
         /**
@@ -2008,9 +2120,10 @@
             userCountDisplay.style.display = 'none'; // Hide user count when quiz starts
             continueQuizPrompt.style.display = 'none';
             subjectSelectionArea.style.display = 'none';
+            modeSelectionArea.style.display = 'none'; // Hide mode selection area
             viewLeaderboardButton.style.display = 'none';
 
-            console.log(`loadFullQuizData: Starting load for ${jsonFileName}. Is continuing: ${isContinuing}`);
+            console.log(`loadFullQuizData: Starting load for ${jsonFileName}. Is continuing: ${isContinuing}, Mode: ${quizMode}`);
 
             try {
                 if (!isContinuing) { // If not continuing quiz, load JSON from scratch
@@ -2041,7 +2154,9 @@
                     selectedQuizData = loadedProgressData.selectedQuizData || []; // Use stored selected questions
                     quizStartTime = loadedProgressData.quizStartTime ?? Date.now(); // Load quiz start time
                     lastActiveTime = loadedProgressData.lastActiveTime ?? Date.now(); // Load last active time
-                    console.log(`loadFullQuizData: Quiz resumed. Loaded score: ${score}, User answers: ${userAnswers.length}, Incorrect questions: ${incorrectQuestions.length}`);
+                    // Also load the quiz mode from saved progress if available
+                    quizMode = loadedProgressData.quizMode ?? 'practice'; 
+                    console.log(`loadFullQuizData: Quiz resumed. Loaded score: ${score}, User answers: ${userAnswers.length}, Incorrect questions: ${incorrectQuestions.length}, Mode: ${quizMode}`);
                 }
                 
                 loadQuestion(); // Load the first question
@@ -2055,6 +2170,7 @@
                 // On error, return to initial state for user to retry
                 initialSelectionScreen.style.display = 'flex';
                 subjectSelectionArea.style.display = 'block';
+                modeSelectionArea.style.display = 'flex'; // Show mode selection area on error
                 questionCountsElement.style.display = 'block';
                 userCountDisplay.style.display = 'block'; // Show user count on error
                 continueQuizPrompt.style.display = 'none';
@@ -2081,6 +2197,10 @@
             stopTimer(); // Ensure timer stops
             timerDisplay.style.display = 'none';
             userCountDisplay.style.display = 'none'; // Hide user count when returning to env selection
+            // Reset quizMode to default when restarting
+            quizMode = 'practice';
+            practiceModeButton.classList.add('selected-mode');
+            examModeButton.classList.remove('selected-mode');
             // No need to call getAndDisplayUserCount() here, it will be called after env selection
             hideGlobalLoading(); // Ensure loading is hidden
         });
@@ -2382,11 +2502,12 @@ D) ${currentQuestionData.options[3]}
                     currentQuestionIndex: currentQuestionIndex !== undefined ? currentQuestionIndex : 0,
                     userAnswers: userAnswers || [],
                     score: score !== undefined ? score : 0, // This is the count of correct answers
-                    incorrectQuestions: incorrectQuestions || [],
+                    incorrectQuestions: incorrectQuestions || [], // Still save for potential future use
                     timeRemaining: timeRemaining !== undefined ? timeRemaining : quizDurationInSeconds,
                     selectedQuizData: selectedQuizData || [],
                     quizStartTime: quizStartTime, // Save quiz start time
                     lastActiveTime: Date.now(), // Update and save last active time
+                    quizMode: quizMode, // New: Save the current quiz mode
                     lastSaved: serverTimestamp()
                 };
                 
@@ -2394,7 +2515,7 @@ D) ${currentQuestionData.options[3]}
                 const cleanedDataToSave = removeUndefined(dataToSave);
 
                 await setDoc(progressDocRef, cleanedDataToSave, { merge: false }); // Overwrite old progress for this subject
-                console.log(`saveQuizProgress: Quiz progress saved for ${subjectId}. Score: ${score}, User answers: ${userAnswers.length}, Incorrect questions: ${incorrectQuestions.length}`);
+                console.log(`saveQuizProgress: Quiz progress saved for ${subjectId}. Score: ${score}, User answers: ${userAnswers.length}, Incorrect questions: ${incorrectQuestions.length}, Mode: ${quizMode}`);
             } catch (error) {
                 console.error("saveQuizProgress: Failed to save quiz progress:", error);
                 if (error.code === 'permission-denied') {
@@ -2468,6 +2589,7 @@ D) ${currentQuestionData.options[3]}
                 initialSelectionScreen.style.display = 'flex';
                 continueQuizPrompt.style.display = 'none';
                 subjectSelectionArea.style.display = 'block';
+                modeSelectionArea.style.display = 'flex'; // Show mode selection area on Firebase init error
                 getQuestionCounts(); // Still try to display question counts
                 viewLeaderboardButton.style.display = 'block';
                 userCountDisplay.style.display = 'block'; // Ensure user count is visible on this screen
@@ -2632,6 +2754,7 @@ D) ${currentQuestionData.options[3]}
                 environmentSelectionScreen.style.display = 'none';
                 initialSelectionScreen.style.display = 'flex';
                 subjectSelectionArea.style.display = 'block'; // Always show subject selection
+                modeSelectionArea.style.display = 'flex'; // Always show mode selection
                 getQuestionCounts(); // Display question counts
                 viewLeaderboardButton.style.display = 'block'; // Show leaderboard button on initial screen
                 await checkAndDisplaySavedProgress(); // Check for saved progress
@@ -2648,13 +2771,11 @@ D) ${currentQuestionData.options[3]}
         // Environment selection button click event listeners
         selectCanvasEnvButton.addEventListener('click', async () => {
             currentEnvironment = 'canvas';
-            // userCountDisplay.style.display = 'block'; // Removed from here
             await handleUserAuthenticationAndDataLoad();
         });
 
         selectGithubEnvButton.addEventListener('click', async () => {
             currentEnvironment = 'github-pages';
-            // userCountDisplay.style.display = 'block'; // Removed from here
             await handleUserAuthenticationAndDataLoad();
         });
 
@@ -2683,8 +2804,21 @@ D) ${currentQuestionData.options[3]}
             // If user cancels, return to environment selection screen
             environmentSelectionScreen.style.display = 'flex';
             initialSelectionScreen.style.display = 'none';
-            // userCountDisplay.style.display = 'block'; // Removed from here
-            // getAndDisplayUserCount(); // Removed from here
+        });
+
+        // New: Mode selection event listeners
+        practiceModeButton.addEventListener('click', () => {
+            quizMode = 'practice';
+            practiceModeButton.classList.add('selected-mode');
+            examModeButton.classList.remove('selected-mode');
+            console.log("Quiz mode set to: practice");
+        });
+
+        examModeButton.addEventListener('click', () => {
+            quizMode = 'exam';
+            examModeButton.classList.add('selected-mode');
+            practiceModeButton.classList.remove('selected-mode');
+            console.log("Quiz mode set to: exam");
         });
 
         /**
@@ -2709,6 +2843,7 @@ D) ${currentQuestionData.options[3]}
                     totalQuestions: selectedQuizData.length, // Still save total questions, if needed
                     correctAnswers: score, // Add correct answer count, if needed
                     subject: subjectNames[subjectSelect.value],
+                    quizMode: quizMode, // Save the mode
                     timestamp: serverTimestamp()
                 };
 
@@ -2769,7 +2904,7 @@ D) ${currentQuestionData.options[3]}
                     // Display the 'score' field read from Firestore, which should now be the calculated total score
                     listItem.innerHTML = `
                         <span class="leaderboard-rank">${rank}.</span>
-                        <span class="leaderboard-name">${data.displayName} (${data.subject})</span>
+                        <span class="leaderboard-name">${data.displayName} (${data.subject} - ${data.quizMode === 'practice' ? '練習' : '正式'})</span>
                         <span class="leaderboard-score">${data.score} 分</span> 
                         <span class="text-sm text-gray-500 ml-4">${formattedDate}</span>
                     `;
@@ -2802,11 +2937,15 @@ D) ${currentQuestionData.options[3]}
             let shareText = `我在「${quizTitle}」的「${subjectName}」測驗中，獲得了 ${finalScoreDisplay}！\n${message}\n\n`;
             shareText += `我的暱稱是：${userName}\n`;
 
-            if (incorrectQuestions.length > 0) {
-                shareText += `\n我答錯了 ${incorrectQuestions.length} 題，繼續努力！`;
+            // 這裡不再僅顯示錯題數量，而是總結答題情況
+            const answeredQuestionsCount = userAnswers.filter(answer => answer !== undefined).length;
+            const totalQuestionsCount = selectedQuizData.length;
+            
+            if (answeredQuestionsCount < totalQuestionsCount) {
+                shareText += `我完成了 ${answeredQuestionsCount} / ${totalQuestionsCount} 題，其中答對了 ${score} 題。`;
             } else {
-                shareText += `\n恭喜我，沒有答錯的題目！`;
-            } 
+                shareText += `我完成了所有 ${totalQuestionsCount} 題，其中答對了 ${score} 題。`;
+            }
             shareText += `\n\n立即來挑戰：${window.location.href}`; 
 
             try {
@@ -2858,7 +2997,6 @@ D) ${currentQuestionData.options[3]}
             
             // Initialize Firebase services
             await initializeFirebaseServices();
-            // No initial getAndDisplayUserCount() here anymore.
             hideGlobalLoading(); // Hide loading indicator after DOMContentLoaded completes
 
             // Add event listener for share results button (ensure executed after DOMContentLoaded)
@@ -2908,6 +3046,7 @@ D) ${currentQuestionData.options[3]}
                             incorrectQuestions = loadedProgressData.incorrectQuestions || [];
                             selectedQuizData = loadedProgressData.selectedQuizData || [];
                             quizStartTime = loadedProgressData.quizStartTime ?? Date.now();
+                            quizMode = loadedProgressData.quizMode ?? 'practice'; // Load quiz mode from progress
 
                             loadQuestion(); // Reload current question to reflect state
                             startTimer(); // Resume timer
