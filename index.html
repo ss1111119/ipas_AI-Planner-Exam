@@ -1306,6 +1306,7 @@
         let effectiveAppId = ''; // Stores the actual appId used
         let currentUserId = ''; // Stores the current logged-in user's Firebase UID
         let currentUserDisplayName = ''; // Stores the user's custom display name
+        let isAuthReady = false; // New flag to indicate Firebase authentication is ready
 
         // Firebase project configuration (ensure this is your actual configuration)
         // In the Canvas environment, __firebase_config will be preferred
@@ -1483,6 +1484,10 @@
          * @param {string} appIdToUse - The current application ID.
          */
         async function trackUserVisit(appIdToUse) {
+            if (!isAuthReady || !db || !currentUserId || !appIdToUse) {
+                console.warn("trackUserVisit: Firebase auth not ready or parameters missing. Skipping user visit tracking.");
+                return;
+            }
             const userId = currentUserId; // Use the globally set Firebase UID
             if (!userId) {
                 console.error("Failed to track user visit: User ID not available.");
@@ -1536,8 +1541,8 @@
             // Add a short delay to ensure Firebase is fully initialized and connected
             await new Promise(resolve => setTimeout(resolve, 500)); 
 
-            if (!db || !effectiveAppId) {
-                console.error("getAndDisplayUserCount: Firestore not initialized or App ID invalid, cannot fetch visitor count. db:", db, "effectiveAppId:", effectiveAppId);
+            if (!isAuthReady || !db || !effectiveAppId) {
+                console.error("getAndDisplayUserCount: Firebase auth not ready, Firestore not initialized or App ID invalid, cannot fetch visitor count. db:", db, "effectiveAppId:", effectiveAppId);
                 userCountDisplay.textContent = '無法載入訪問人數 (初始化中/錯誤)。請檢查控制台錯誤訊息。';
                 return;
             }
@@ -1566,24 +1571,26 @@
          * @returns {Promise<Object|null>} - Quiz progress data or null.
          */
         async function loadQuizProgress(subjectId) {
-            if (!db || !currentUserId || !effectiveAppId) {
-                console.warn("Cannot load progress: Firebase not initialized or user ID invalid.");
+            if (!isAuthReady || !db || !currentUserId || !effectiveAppId) {
+                console.warn("loadQuizProgress: Firebase auth not ready or parameters missing. Cannot load progress.");
                 return null;
             }
 
             const progressDocRef = doc(db, 'artifacts', effectiveAppId, 'users', currentUserId, 'quiz_progress', subjectId);
+            console.log(`loadQuizProgress: Attempting to load progress for subject: ${subjectId}, user: ${currentUserId}`);
 
             try {
                 const docSnap = await getDoc(progressDocRef);
                 if (docSnap.exists()) {
-                    console.log(`Quiz progress loaded (Subject: ${subjectId})`);
-                    return docSnap.data();
+                    const data = docSnap.data();
+                    console.log(`loadQuizProgress: Quiz progress loaded for ${subjectId}:`, data);
+                    return data;
                 } else {
-                    console.log(`No quiz progress found (Subject: ${subjectId})`);
+                    console.log(`loadQuizProgress: No quiz progress found for subject: ${subjectId}`);
                     return null;
                 }
             } catch (error) {
-                console.error("Failed to load quiz progress:", error);
+                console.error("loadQuizProgress: Failed to load quiz progress:", error);
                 if (error.code === 'permission-denied') {
                     console.error("Error: Firebase permission denied. Please check your Firestore security rules to ensure anonymous users can read on path `/artifacts/{appId}/users/{userId}/quiz_progress/{subjectId}`.");
                 }
@@ -1595,8 +1602,8 @@
          * Checks and displays if there is saved quiz progress.
          */
         async function checkAndDisplaySavedProgress() {
-            if (!currentUserId) {
-                console.log("User ID not ready, cannot check progress.");
+            if (!isAuthReady || !currentUserId) {
+                console.log("checkAndDisplaySavedProgress: User ID or Firebase auth not ready, cannot check progress.");
                 return;
             }
 
@@ -1607,10 +1614,12 @@
                 continueQuizMessage.textContent = `您有未完成的「${subjectNames[defaultSubject]}」測驗進度 (暱稱: ${currentUserDisplayName || '匿名用戶'})。`;
                 continueQuizPrompt.style.display = 'flex'; // Show continue quiz prompt
                 subjectSelectionArea.style.display = 'none'; // Hide subject selection area
+                console.log("checkAndDisplaySavedProgress: Found saved progress.");
             } else {
                 continueQuizPrompt.style.display = 'none'; // Hide continue quiz prompt
                 subjectSelectionArea.style.display = 'block'; // Show subject selection area
                 getQuestionCounts(); // Display question counts
+                console.log("checkAndDisplaySavedProgress: No saved progress found or progress is empty.");
             }
         }
 
@@ -1690,7 +1699,7 @@
             const currentQuizQuestionIds = selectedQuizData.map(q => getQuestionIdentifier(q));
             localStorage.setItem(playedQuestionIdsKey, JSON.stringify(currentQuizQuestionIds));
 
-            console.log(`Selected ${selectedQuizData.length} questions for subject ${currentSubjectId}. Including ${newQuestions.length} new questions and ${recycledQuestions.length} recycled questions.`);
+            console.log(`initializeQuizData: Selected ${selectedQuizData.length} questions for subject ${currentSubjectId}. Including ${newQuestions.length} new questions and ${recycledQuestions.length} recycled questions.`);
         }
 
 
@@ -1704,6 +1713,7 @@
                 prevButton.disabled = true;
                 nextButton.disabled = true;
                 submitEarlyButton.disabled = true;
+                console.error("loadQuestion: selectedQuizData is empty.");
                 return;
             }
 
@@ -1772,6 +1782,7 @@
             geminiLoadingIndicator.style.display = 'none';
 
             updateNavigationButtons();
+            console.log(`loadQuestion: Loaded question ${currentQuestionIndex + 1}. Current score: ${score}, User answers count: ${userAnswers.length}, Incorrect questions count: ${incorrectQuestions.length}`);
         }
 
         /**
@@ -1782,6 +1793,7 @@
         async function selectOption(selectedButton, selectedOriginalLabel) {
             // If there is already an answer, do not allow re-selection
             if (userAnswers[currentQuestionIndex]) {
+                console.log(`selectOption: Question ${currentQuestionIndex + 1} already answered. Skipping.`);
                 return;
             }
 
@@ -1805,6 +1817,7 @@
             if (isCorrect) {
                 selectedButton.classList.add('correct');
                 score++; // Increment score if correct
+                console.log(`selectOption: Question ${currentQuestionIndex + 1} correct. Current score: ${score}`);
             } else {
                 selectedButton.classList.add('incorrect');
                 // Record incorrectly answered question
@@ -1816,6 +1829,7 @@
                     correctOptionContent: correctOptionContent, // Actual content of the correct option
                     explanation: questionData.explanation
                 });
+                console.log(`selectOption: Question ${currentQuestionIndex + 1} incorrect. Current score: ${score}, Incorrect questions count: ${incorrectQuestions.length}`);
             }
 
             // Mark correct answer
@@ -1875,6 +1889,7 @@
         nextButton.addEventListener('click', async () => { // Add async
             // Only allow clicking next if the current question has been answered
             if (!userAnswers[currentQuestionIndex]) {
+                console.log("Next button clicked but current question not answered.");
                 return;
             }
 
@@ -1884,6 +1899,7 @@
                 await saveQuizProgress(subjectSelect.value); // Save progress after navigation
             } else {
                 // Quiz completed
+                console.log("Next button clicked, quiz completed.");
                 showQuizSummary();
             }
         });
@@ -1937,6 +1953,9 @@
             }
             summaryMessageElement.textContent = message;
 
+            console.log(`showQuizSummary: Final score (correct answers): ${score}, Total questions: ${selectedQuizData.length}, Final points: ${finalScorePoints}`);
+            console.log(`showQuizSummary: Incorrect questions count: ${incorrectQuestions.length}`, incorrectQuestions);
+
             // Display incorrect questions review
             incorrectQuestionsSummaryElement.innerHTML = ''; // Clear previous incorrect questions
             if (incorrectQuestions.length > 0) {
@@ -1985,8 +2004,11 @@
             subjectSelectionArea.style.display = 'none';
             viewLeaderboardButton.style.display = 'none';
 
+            console.log(`loadFullQuizData: Starting load for ${jsonFileName}. Is continuing: ${isContinuing}`);
+
             try {
                 if (!isContinuing) { // If not continuing quiz, load JSON from scratch
+                    console.log("loadFullQuizData: Starting a NEW quiz.");
                     const githubRawUrl = `https://raw.githubusercontent.com/ss1111119/ipas_AI-Planner-Exam/main/${jsonFileName}`;
                     const response = await fetch(githubRawUrl);
                     if (!response.ok) {
@@ -2001,8 +2023,10 @@
                     timeRemaining = quizDurationInSeconds; // Reset timer
                     quizStartTime = Date.now(); // Set quiz start time
                     lastActiveTime = Date.now(); // Set last active time
+                    console.log(`loadFullQuizData: New quiz initialized. Score: ${score}, User answers: ${userAnswers.length}, Incorrect questions: ${incorrectQuestions.length}`);
                 } else {
                     // If continuing quiz, use loaded progress data
+                    console.log("loadFullQuizData: Continuing an existing quiz.");
                     currentQuestionIndex = loadedProgressData.currentQuestionIndex ?? 0;
                     userAnswers = loadedProgressData.userAnswers || [];
                     score = loadedProgressData.score ?? 0; // Score here is still the number of correct answers
@@ -2011,6 +2035,7 @@
                     selectedQuizData = loadedProgressData.selectedQuizData || []; // Use stored selected questions
                     quizStartTime = loadedProgressData.quizStartTime ?? Date.now(); // Load quiz start time
                     lastActiveTime = loadedProgressData.lastActiveTime ?? Date.now(); // Load last active time
+                    console.log(`loadFullQuizData: Quiz resumed. Loaded score: ${score}, User answers: ${userAnswers.length}, Incorrect questions: ${incorrectQuestions.length}`);
                 }
                 
                 loadQuestion(); // Load the first question
@@ -2018,7 +2043,7 @@
                 currentSubjectTitle.textContent = subjectNames[jsonFileName]; // Update subject title
                 startTimer(); // Start the timer
             } catch (error) {
-                console.error('Failed to load quiz data:', error);
+                console.error('loadFullQuizData: Failed to load quiz data:', error);
                 loadingIndicator.textContent = `載入題目失敗：${subjectNames[jsonFileName]}。請檢查 GitHub 上的 JSON 檔案路徑或內容格式是否正確。錯誤: ${error.message}`;
                 loadingIndicator.style.display = 'block';
                 // On error, return to initial state for user to retry
@@ -2216,6 +2241,7 @@ D) ${currentQuestionData.options[3]}
 
                 if (timeRemaining <= 0) {
                     stopTimer();
+                    console.log("Timer reached 0. Auto-submitting quiz.");
                     showQuizSummary(); // Auto-submit when time runs out
                     // Disable all options and navigation buttons to prevent further interaction
                     const buttons = optionsContainer.querySelectorAll('.option-button');
@@ -2227,6 +2253,7 @@ D) ${currentQuestionData.options[3]}
                     submitEarlyButton.disabled = true;
                 }
             }, 1000);
+            console.log(`startTimer: Timer started/resumed. Time remaining: ${formatTime(timeRemaining)}, Last active time: ${new Date(lastActiveTime).toLocaleString()}`);
         }
 
         /**
@@ -2234,6 +2261,7 @@ D) ${currentQuestionData.options[3]}
          */
         function stopTimer() {
             clearInterval(timerInterval);
+            console.log("stopTimer: Timer stopped.");
         }
 
         /**
@@ -2336,8 +2364,8 @@ D) ${currentQuestionData.options[3]}
          * @param {string} subjectId - The subject ID.
          */
         async function saveQuizProgress(subjectId) {
-            if (!db || !currentUserId || !effectiveAppId) {
-                console.warn("Cannot save progress: Firebase not initialized or user ID invalid.");
+            if (!isAuthReady || !db || !currentUserId || !effectiveAppId) {
+                console.warn("saveQuizProgress: Firebase auth not ready or parameters missing. Cannot save progress.");
                 return;
             }
 
@@ -2348,7 +2376,7 @@ D) ${currentQuestionData.options[3]}
                     subjectId: subjectId,
                     currentQuestionIndex: currentQuestionIndex !== undefined ? currentQuestionIndex : 0,
                     userAnswers: userAnswers || [],
-                    score: score !== undefined ? score : 0,
+                    score: score !== undefined ? score : 0, // This is the count of correct answers
                     incorrectQuestions: incorrectQuestions || [],
                     timeRemaining: timeRemaining !== undefined ? timeRemaining : quizDurationInSeconds,
                     selectedQuizData: selectedQuizData || [],
@@ -2361,9 +2389,9 @@ D) ${currentQuestionData.options[3]}
                 const cleanedDataToSave = removeUndefined(dataToSave);
 
                 await setDoc(progressDocRef, cleanedDataToSave, { merge: false }); // Overwrite old progress for this subject
-                console.log(`Quiz progress saved (Subject: ${subjectId})`);
+                console.log(`saveQuizProgress: Quiz progress saved for ${subjectId}. Score: ${score}, User answers: ${userAnswers.length}, Incorrect questions: ${incorrectQuestions.length}`);
             } catch (error) {
-                console.error("Failed to save quiz progress:", error);
+                console.error("saveQuizProgress: Failed to save quiz progress:", error);
                 if (error.code === 'permission-denied') {
                     console.error("Error: Firebase permission denied. Please check your Firestore security rules to ensure anonymous users can read/write on path `/artifacts/{appId}/users/{userId}/quiz_progress/{subjectId}`.");
                 }
@@ -2375,17 +2403,17 @@ D) ${currentQuestionData.options[3]}
          * @param {string} subjectId - The subject ID.
          */
         async function clearQuizProgress(subjectId) {
-            if (!db || !currentUserId || !effectiveAppId) {
-                console.warn("Cannot clear progress: Firebase not initialized or user ID invalid.");
+            if (!isAuthReady || !db || !currentUserId || !effectiveAppId) {
+                console.warn("clearQuizProgress: Firebase auth not ready or parameters missing. Cannot clear progress.");
                 return;
             }
             const progressDocRef = doc(db, 'artifacts', effectiveAppId, 'users', currentUserId, 'quiz_progress', subjectId);
             try {
                 await setDoc(progressDocRef, {}); // Set to empty object to clear content
-                console.log(`Quiz progress cleared (Subject: ${subjectId})`);
+                console.log(`clearQuizProgress: Quiz progress cleared for ${subjectId}.`);
                 loadedProgressData = null; // Clear locally loaded data
             } catch (error) {
-                console.error("Failed to clear quiz progress:", error);
+                console.error("clearQuizProgress: Failed to clear quiz progress:", error);
             }
         }
 
@@ -2447,16 +2475,16 @@ D) ${currentQuestionData.options[3]}
          * @param {string} displayName - The display name to save.
          */
         async function saveUserDisplayNameToFirestore(uid, displayName) {
-            if (!db || !uid || !effectiveAppId) {
-                console.warn("Cannot save display name: Firebase not initialized or UID invalid.");
+            if (!isAuthReady || !db || !uid || !effectiveAppId) {
+                console.warn("saveUserDisplayNameToFirestore: Firebase auth not ready or parameters missing. Cannot save display name.");
                 return;
             }
             const userProfileDocRef = doc(db, 'artifacts', effectiveAppId, 'users', uid, 'profile', 'data');
             try {
                 await setDoc(userProfileDocRef, { displayName: displayName, lastUpdated: serverTimestamp() }, { merge: true });
-                console.log(`User display name saved: ${displayName} for UID: ${uid}`);
+                console.log(`saveUserDisplayNameToFirestore: User display name saved: ${displayName} for UID: ${uid}`);
             } catch (error) {
-                console.error("Failed to save user display name:", error);
+                console.error("saveUserDisplayNameToFirestore: Failed to save user display name:", error);
                 if (error.code === 'permission-denied') {
                     console.error("Error: Firebase permission denied. Please check your Firestore security rules to ensure users can read/write on path `/artifacts/{appId}/users/{userId}/profile/data`.");
                 }
@@ -2469,21 +2497,21 @@ D) ${currentQuestionData.options[3]}
          * @returns {Promise<string|null>} - The loaded display name or null.
          */
         async function loadUserDisplayNameFromFirestore(uid) {
-            if (!db || !uid || !effectiveAppId) {
-                console.warn("Cannot load display name: Firebase not initialized or UID invalid.");
+            if (!isAuthReady || !db || !uid || !effectiveAppId) {
+                console.warn("loadUserDisplayNameFromFirestore: Firebase auth not ready or parameters missing. Cannot load display name.");
                 return null;
             }
             const userProfileDocRef = doc(db, 'artifacts', effectiveAppId, 'users', uid, 'profile', 'data');
             try {
                 const docSnap = await getDoc(userProfileDocRef);
                 if (docSnap.exists() && docSnap.data().displayName) {
-                    console.log(`Loaded display name from Firestore: ${docSnap.data().displayName} for UID: ${uid}`);
+                    console.log(`loadUserDisplayNameFromFirestore: Loaded display name from Firestore: ${docSnap.data().displayName} for UID: ${uid}`);
                     return docSnap.data().displayName;
                 }
-                console.log(`No display name loaded from Firestore for UID: ${uid}`);
+                console.log(`loadUserDisplayNameFromFirestore: No display name loaded from Firestore for UID: ${uid}`);
                 return null;
             } catch (error) {
-                console.error("Failed to load user display name:", error);
+                console.error("loadUserDisplayNameFromFirestore: Failed to load user display name:", error);
                 return null;
             }
         }
@@ -2554,7 +2582,8 @@ D) ${currentQuestionData.options[3]}
 
             // At this point, firebaseAuthUid should be set, use it as the actual currentUserId
             currentUserId = firebaseAuthUid;
-            console.log("handleUserAuthenticationAndDataLoad: currentUserId set to:", currentUserId);
+            isAuthReady = true; // Set auth ready flag
+            console.log("handleUserAuthenticationAndDataLoad: currentUserId set to:", currentUserId, "isAuthReady:", isAuthReady);
 
             // Step 2: Handle user display name
             let storedDisplayName = localStorage.getItem('user_defined_display_name');
@@ -2589,8 +2618,8 @@ D) ${currentQuestionData.options[3]}
          * Continues the application flow after the user ID is set.
          */
         async function proceedAfterUserIdSet() {
-            console.log("proceedAfterUserIdSet: Continuing execution, currentUserId:", currentUserId);
-            if (currentUserId) {
+            console.log("proceedAfterUserIdSet: Continuing execution, currentUserId:", currentUserId, "isAuthReady:", isAuthReady);
+            if (currentUserId && isAuthReady) {
                 console.log("proceedAfterUserIdSet: db:", db, "effectiveAppId:", effectiveAppId);
                 await trackUserVisit(effectiveAppId); // Track user visit
                 environmentSelectionScreen.style.display = 'none';
@@ -2600,8 +2629,8 @@ D) ${currentQuestionData.options[3]}
                 viewLeaderboardButton.style.display = 'block'; // Show leaderboard button on initial screen
                 await checkAndDisplaySavedProgress(); // Check for saved progress
             } else {
-                console.error("proceedAfterUserIdSet: Unable to set currentUserId.");
-                showConfirmationModal('錯誤', '無法設定使用者 ID，請重新整理頁面或稍後再試。', null, true);
+                console.error("proceedAfterUserIdSet: Unable to set currentUserId or auth not ready.");
+                showConfirmationModal('錯誤', '無法設定使用者 ID 或認證未準備就緒，請重新整理頁面或稍後再試。', null, true);
             }
         }
 
@@ -2652,8 +2681,8 @@ D) ${currentQuestionData.options[3]}
          * @param {number} finalScorePoints - The calculated total score.
          */
         async function saveQuizScoreToLeaderboard(finalScorePoints) {
-            if (!db || !currentUserId || !effectiveAppId) {
-                console.warn("Cannot save leaderboard score: Firebase not initialized or required parameters missing.");
+            if (!isAuthReady || !db || !currentUserId || !effectiveAppId) {
+                console.warn("saveQuizScoreToLeaderboard: Firebase auth not ready or parameters missing. Cannot save leaderboard score.");
                 return;
             }
 
@@ -2674,9 +2703,9 @@ D) ${currentQuestionData.options[3]}
 
                 // Add a new document, ID automatically generated by Firestore
                 await addDoc(leaderboardCollectionRef, scoreData);
-                console.log("Quiz score saved to leaderboard.");
+                console.log("saveQuizScoreToLeaderboard: Quiz score saved to leaderboard.", scoreData);
             } catch (error) {
-                console.error("Failed to save quiz score to leaderboard:", error);
+                console.error("saveQuizScoreToLeaderboard: Failed to save quiz score to leaderboard:", error);
                 if (error.code === 'permission-denied') {
                     console.error("Error: Firebase permission denied. Please check your Firestore security rules to ensure users can write on path `/artifacts/{appId}/public/data/leaderboard_scores`.");
                 }
@@ -2692,8 +2721,8 @@ D) ${currentQuestionData.options[3]}
             console.log("fetchLeaderboardScores: db instance:", db);
             console.log("fetchLeaderboardScores: effectiveAppId:", effectiveAppId);
 
-            if (!db || !effectiveAppId) {
-                console.error("fetchLeaderboardScores: Firestore not initialized or App ID invalid, cannot fetch leaderboard scores.");
+            if (!isAuthReady || !db || !effectiveAppId) {
+                console.error("fetchLeaderboardScores: Firebase auth not ready, Firestore not initialized or App ID invalid, cannot fetch leaderboard scores.");
                 leaderboardList.innerHTML = '<li>無法載入排行榜 (初始化中)。</li>';
                 hideGlobalLoading(); // Hide loading indicator
                 return;
