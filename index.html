@@ -1542,7 +1542,7 @@
             await new Promise(resolve => setTimeout(resolve, 500)); 
 
             if (!isAuthReady || !db || !effectiveAppId) {
-                console.error("getAndDisplayUserCount: Firebase auth not ready, Firestore not initialized or App ID invalid, cannot fetch visitor count. db:", db, "effectiveAppId:", effectiveAppId);
+                console.warn("getAndDisplayUserCount: Firebase auth not ready, Firestore not initialized or App ID invalid, cannot fetch visitor count. db:", db, "effectiveAppId:", effectiveAppId);
                 userCountDisplay.textContent = '無法載入訪問人數 (初始化中/錯誤)。請檢查控制台錯誤訊息。';
                 return;
             }
@@ -2075,8 +2075,9 @@
             stopTimer(); // Ensure timer stops
             timerDisplay.style.display = 'none';
             // Re-fetch and display visitor count
-            // Removed getAndDisplayUserCount() here, as it will be called after auth in proceedAfterUserIdSet
-            hideGlobalLoading(); // Ensure loading is hidden after reading
+            getAndDisplayUserCount().finally(() => { // Re-added here
+                hideGlobalLoading(); // Ensure loading is hidden after reading
+            }); 
         });
 
         // "Start Quiz" button click event listener (triggered from subject selection screen)
@@ -2673,7 +2674,7 @@ D) ${currentQuestionData.options[3]}
             environmentSelectionScreen.style.display = 'flex';
             initialSelectionScreen.style.display = 'none';
             userCountDisplay.style.display = 'block';
-            // Removed getAndDisplayUserCount() here, as it will be called after auth in proceedAfterUserIdSet
+            getAndDisplayUserCount(); // Re-added here
         });
 
         /**
@@ -2838,10 +2839,12 @@ D) ${currentQuestionData.options[3]}
             timerDisplay.style.display = 'none';
             userIdModalOverlay.style.display = 'none';
             leaderboardModalOverlay.style.display = 'none';
+            userCountDisplay.style.display = 'block'; // Ensure it's visible from the start
             
             // Initialize Firebase services
             await initializeFirebaseServices();
-            // Removed getAndDisplayUserCount() here, as it will be called after auth in proceedAfterUserIdSet
+            // Immediately fetch and display visitor count (will show "loading" or "error" initially, then update)
+            await getAndDisplayUserCount(); 
             hideGlobalLoading(); // Hide loading indicator after DOMContentLoaded completes
 
             // Add event listener for share results button (ensure executed after DOMContentLoaded)
