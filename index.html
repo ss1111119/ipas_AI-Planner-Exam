@@ -1293,43 +1293,43 @@
     </div>
 
     <script type="module">
-        // 導入 Firebase SDK 模組
+        // Import Firebase SDK modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, getDoc, getDocs, serverTimestamp, query, orderBy, limit, addDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js"; 
 
-        // Firebase 相關變數和初始化
+        // Firebase related variables and initialization
         let app;
         let db;
         let auth;
-        let currentEnvironment = ''; // 'canvas' 或 'github-pages'
-        let effectiveAppId = ''; // 儲存實際使用的 appId
-        let currentUserId = ''; // 儲存當前登入用戶的 Firebase UID
-        let currentUserDisplayName = ''; // 儲存使用者自定義的暱稱
+        let currentEnvironment = ''; // 'canvas' or 'github-pages'
+        let effectiveAppId = ''; // Stores the actual appId used
+        let currentUserId = ''; // Stores the current logged-in user's Firebase UID
+        let currentUserDisplayName = ''; // Stores the user's custom display name
 
-        // Firebase 專案配置 (請確保這是您的實際配置)
-        // 在 Canvas 環境下，會優先使用 __firebase_config
+        // Firebase project configuration (ensure this is your actual configuration)
+        // In the Canvas environment, __firebase_config will be preferred
         const defaultFirebaseConfig = {
           apiKey: "***REMOVED***",
           authDomain: "ipas-ai-planner-exam.firebaseapp.com",
           projectId: "ipas-ai-planner-exam",
           storageBucket: "ipas-ai-planner-exam.firebasestorage.app",
-          appId: "1:1018339017757:web:934bf9c05ea898fdd972f4", // <-- 這裡設定預設的 appId
+          appId: "1:1018339017757:web:934bf9c05ea898fdd972f4", // <-- Set default appId here
           measurementId: "G-5WWRYNKFJ6"
         };
 
-        // 測驗應用程式相關變數
-        let fullQuizData = []; // 儲存從 JSON 載入的所有題目
-        let selectedQuizData = []; // 儲存隨機選取的 50 題
+        // Quiz application related variables
+        let fullQuizData = []; // Stores all questions loaded from JSON
+        let selectedQuizData = []; // Stores 50 randomly selected questions
         let currentQuestionIndex = 0;
         let userAnswers = [];
-        let score = 0; // 儲存答對題數
-        let incorrectQuestions = []; // 儲存答錯的題目
-        const optionLabels = ['A', 'B', 'C', 'D']; // 選項標籤 (A, B, C, D)
-        let loadedProgressData = null; // 儲存從 Firestore 載入的進度資料
-        const POINTS_PER_QUESTION = 2.5; // 每題分數
+        let score = 0; // Stores the number of correct answers
+        let incorrectQuestions = []; // Stores incorrectly answered questions
+        const optionLabels = ['A', 'B', 'C', 'D']; // Option labels (A, B, C, D)
+        let loadedProgressData = null; // Stores progress data loaded from Firestore
+        const POINTS_PER_QUESTION = 2.5; // Points per question
 
-        // DOM 元素獲取
+        // DOM element retrieval
         const environmentSelectionScreen = document.getElementById('environment-selection-screen');
         const selectCanvasEnvButton = document.getElementById('select-canvas-env');
         const selectGithubEnvButton = document.getElementById('select-github-env');
@@ -1363,7 +1363,7 @@
         const questionCountsElement = document.getElementById('question-counts');
         const userCountDisplay = document.getElementById('user-count-display');
 
-        // Gemini API 相關 DOM 元素
+        // Gemini API related DOM elements
         const askGeminiButton = document.getElementById('ask-gemini-button');
         const geminiModalOverlay = document.getElementById('gemini-modal-overlay');
         const geminiModalClose = document.getElementById('gemini-modal-close');
@@ -1373,84 +1373,86 @@
         const geminiLoadingIndicator = document.getElementById('gemini-loading-indicator');
         const geminiResponseArea = document.getElementById('gemini-response-area');
 
-        // API 金鑰輸入模態框相關 DOM 元素
+        // API Key input modal related DOM elements
         const apiKeyModalOverlay = document.getElementById('api-key-modal-overlay');
         const geminiApiKeyInput = document.getElementById('gemini-api-key-input');
         const submitApiKeyButton = document.getElementById('submit-api-key-button');
         const apiKeyModalCancelButton = document.getElementById('api-key-modal-cancel-button');
 
-        // 確認模態框相關 DOM 元素
+        // Confirmation modal related DOM elements
         const confirmationModalOverlay = document.getElementById('confirmation-modal-overlay');
         const confirmYesButton = document.getElementById('confirm-yes-button');
         const confirmNoButton = document.getElementById('confirm-no-button');
 
-        // 使用者 ID 輸入模態框相關 DOM 元素
+        // User ID input modal related DOM elements
         const userIdModalOverlay = document.getElementById('user-id-modal-overlay');
         const userIdInput = document.getElementById('user-id-input');
         const submitUserIdButton = document.getElementById('submit-user-id-button');
         const cancelUserIdButton = document.getElementById('cancel-user-id-button');
 
-        // 排行榜相關 DOM 元素
+        // Leaderboard related DOM elements
         const viewLeaderboardButton = document.getElementById('view-leaderboard-button');
         const viewLeaderboardButtonSummary = document.getElementById('view-leaderboard-button-summary');
         const leaderboardModalOverlay = document.getElementById('leaderboard-modal-overlay');
         const leaderboardModalClose = document.getElementById('leaderboard-modal-close');
         const leaderboardList = document.getElementById('leaderboard-list');
 
-        // 分享結果按鈕 DOM 元素
+        // Share results button DOM element
         const shareResultsButton = document.getElementById('share-results-button');
 
-        // 全域載入覆蓋層 DOM 元素
+        // Global loading overlay DOM element
         const globalLoadingOverlay = document.getElementById('global-loading-overlay');
 
-        // 全域變數，用於儲存 Gemini API 金鑰
+        // Global variable for Gemini API key
         let geminiApiKey = ""; 
 
-        // 計時器變數
-        const quizDurationInSeconds = 75 * 60; // 75 分鐘
+        // Timer variables
+        const quizDurationInSeconds = 75 * 60; // 75 minutes
         let timeRemaining = quizDurationInSeconds;
         let timerInterval;
         const timerDisplay = document.getElementById('timer-display');
+        let quizStartTime = 0; // Timestamp when the quiz officially started (or resumed)
+        let lastActiveTime = 0; // Timestamp of the last time the timer was active (page visible)
 
-        // 科目名稱映射表
+        // Subject name mapping table
         const subjectNames = {
             'topic1_ai_intro.json': '科目一：人工智慧基礎概論',
             'topic2_generative_ai_app_planning.json': '科目二：生成式 AI 應用與規劃'
         };
 
         /**
-         * 顯示全域載入覆蓋層。
+         * Displays the global loading overlay.
          */
         function showGlobalLoading() {
             globalLoadingOverlay.style.display = 'flex';
         }
 
         /**
-         * 隱藏全域載入覆蓋層。
+         * Hides the global loading overlay.
          */
         function hideGlobalLoading() {
             globalLoadingOverlay.style.display = 'none';
         }
 
         /**
-         * Fisher-Yates 洗牌演算法，用於隨機打亂陣列。
-         * @param {Array} array - 要洗牌的陣列。
-         * @returns {Array} - 洗牌後的陣列。
+         * Fisher-Yates shuffle algorithm, used to randomize an array.
+         * @param {Array} array - The array to shuffle.
+         * @returns {Array} - The shuffled array.
          */
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                // 正確的陣列解構賦值，用於交換元素
+                // Correct array destructuring assignment for swapping elements
                 [array[i], array[j]] = [array[j], array[i]]; 
             }
             return array;
         }
 
         /**
-         * 遞迴地從物件或陣列中移除所有 undefined 值。
-         * Firestore 不支援 undefined 值，此函數用於清理資料以符合 Firestore 要求。
-         * @param {any} obj - 要清理的物件或值。
-         * @returns {any} - 清理後的物件或值，undefined 值會被移除。
+         * Recursively removes all undefined values from an object or array.
+         * Firestore does not support undefined values, this function cleans data to meet Firestore requirements.
+         * @param {any} obj - The object or value to clean.
+         * @returns {any} - The cleaned object or value, with undefined values removed.
          */
         function removeUndefined(obj) {
             if (obj === null || typeof obj !== 'object') {
@@ -1458,17 +1460,17 @@
             }
 
             if (Array.isArray(obj)) {
-                // 遞迴處理陣列中的每個元素，並過濾掉 undefined 的結果
+                // Recursively process each element in the array and filter out undefined results
                 return obj.map(item => removeUndefined(item)).filter(item => item !== undefined);
             }
 
             const newObj = {};
             for (const key in obj) {
-                // 確保只處理物件自身的屬性，而非原型鏈上的屬性
+                // Ensure only own properties of the object are processed, not those on the prototype chain
                 if (Object.prototype.hasOwnProperty.call(obj, key)) {
                     const value = obj[key];
                     if (value !== undefined) {
-                        // 遞迴處理巢狀物件
+                        // Recursively process nested objects
                         newObj[key] = removeUndefined(value);
                     }
                 }
@@ -1477,95 +1479,95 @@
         }
 
         /**
-         * 追蹤使用者訪問，在 Firestore 中記錄每個獨立訪客的資訊。
-         * @param {string} appIdToUse - 當前使用的應用程式 ID。
+         * Tracks user visits, recording information about each unique visitor in Firestore.
+         * @param {string} appIdToUse - The current application ID.
          */
         async function trackUserVisit(appIdToUse) {
-            const userId = currentUserId; // 使用全域設定的 Firebase UID
+            const userId = currentUserId; // Use the globally set Firebase UID
             if (!userId) {
-                console.error("追蹤使用者訪問失敗: 無法獲取使用者 ID。");
+                console.error("Failed to track user visit: User ID not available.");
                 return;
             }
 
-            // 增加短暫延遲，以確保 Firestore 數據同步（診斷用）
+            // Add a short delay to ensure Firestore data sync (for diagnosis)
             await new Promise(resolve => setTimeout(resolve, 500)); 
 
-            // 構建 Firestore 文件參考路徑：/artifacts/{appId}/public/data/user_visits/{userId}
+            // Construct Firestore document reference path: /artifacts/{appId}/public/data/user_visits/{userId}
             const userDocRef = doc(collection(db, 'artifacts', appIdToUse, 'public', 'data', 'user_visits'), userId); 
             console.log("Firestore document path for write:", userDocRef.path);
             console.log("Attempting Firestore operation with UID:", userId);
 
             try {
                 const docSnap = await getDoc(userDocRef); 
-                if (!docSnap.exists()) { // 如果文件不存在，表示是新訪客
-                    // 記錄新訪客的資訊
+                if (!docSnap.exists()) { // If the document does not exist, it's a new visitor
+                    // Record new visitor information
                     await setDoc(userDocRef, { 
-                        firstVisit: serverTimestamp(), // 首次訪問時間
-                        lastVisit: serverTimestamp(),  // 最後訪問時間
+                        firstVisit: serverTimestamp(), // First visit timestamp
+                        lastVisit: serverTimestamp(),  // Last visit timestamp
                         userId: userId,                // Firebase UID
-                        displayName: currentUserDisplayName || '匿名用戶' // 使用者暱稱或預設值
+                        displayName: currentUserDisplayName || '匿名用戶' // User display name or default value
                     });
-                    console.log(`新使用者訪問記錄成功: ${userId}`); 
+                    console.log(`New user visit recorded successfully: ${userId}`); 
                 } else {
-                    // 如果文件已存在，更新最後訪問時間和暱稱
+                    // If the document already exists, update last visit timestamp and display name
                     await setDoc(userDocRef, { 
                         lastVisit: serverTimestamp(),
                         displayName: currentUserDisplayName || '匿名用戶'
-                    }, { merge: true }); // 使用 merge: true 以免覆蓋其他字段
-                    console.log(`使用者已記錄，更新最後訪問時間: ${userId}`);
+                    }, { merge: true }); // Use merge: true to avoid overwriting other fields
+                    console.log(`User already recorded, updated last visit time: ${userId}`);
                 }
             } catch (error) {
-                console.error("追蹤使用者訪問失敗:", error);
+                console.error("Failed to track user visit:", error);
                 if (error.code === 'permission-denied') {
-                    console.error("錯誤提示: Firebase 權限不足。請檢查您的 Firestore 安全規則，確保允許匿名使用者在路徑 `/artifacts/{appId}/public/data/user_visits/{userId}` 上進行讀寫操作。");
+                    console.error("Error: Firebase permission denied. Please check your Firestore security rules to ensure anonymous users can read/write on path `/artifacts/{appId}/public/data/user_visits/{userId}`.");
                 }
             }
         }
 
         /**
-         * 從 Firestore 獲取並顯示獨立訪問人數。
+         * Fetches and displays the count of unique visitors from Firestore.
          */
         async function getAndDisplayUserCount() {
             userCountDisplay.textContent = '正在載入訪問人數...';
-            console.log("getAndDisplayUserCount: 開始載入訪問人數...");
-            console.log("getAndDisplayUserCount: db 實例:", db);
+            console.log("getAndDisplayUserCount: Starting to load visitor count...");
+            console.log("getAndDisplayUserCount: db instance:", db);
             console.log("getAndDisplayUserCount: effectiveAppId:", effectiveAppId);
 
-            // 增加短暫延遲，以確保 Firebase 完全初始化並連接
+            // Add a short delay to ensure Firebase is fully initialized and connected
             await new Promise(resolve => setTimeout(resolve, 500)); 
 
             if (!db || !effectiveAppId) {
-                console.error("getAndDisplayUserCount: Firestore 未初始化或 App ID 無效，無法獲取訪問人數。db:", db, "effectiveAppId:", effectiveAppId);
+                console.error("getAndDisplayUserCount: Firestore not initialized or App ID invalid, cannot fetch visitor count. db:", db, "effectiveAppId:", effectiveAppId);
                 userCountDisplay.textContent = '無法載入訪問人數 (初始化中/錯誤)。請檢查控制台錯誤訊息。';
                 return;
             }
 
             try {
-                // 參考 user_visits 集合
+                // Reference the user_visits collection
                 const userVisitsCollectionRef = collection(db, 'artifacts', effectiveAppId, 'public', 'data', 'user_visits');
-                console.log("getAndDisplayUserCount: 嘗試從 Firestore 讀取 user_visits 集合...");
+                console.log("getAndDisplayUserCount: Attempting to read user_visits collection from Firestore...");
                 const querySnapshot = await getDocs(userVisitsCollectionRef);
-                const userCount = querySnapshot.size; // 獲取文件數量即為獨立訪客人數
+                const userCount = querySnapshot.size; // The number of documents is the count of unique visitors
 
                 userCountDisplay.textContent = `總訪問人數 (獨立訪客)：${userCount} 人`;
-                console.log(`getAndDisplayUserCount: 成功獲取訪問人數: ${userCount} 人`);
+                console.log(`getAndDisplayUserCount: Successfully fetched visitor count: ${userCount} people`);
             } catch (error) {
-                console.error("getAndDisplayUserCount: 獲取訪問人數失敗:", error);
+                console.error("getAndDisplayUserCount: Failed to fetch visitor count:", error);
                 userCountDisplay.textContent = '無法載入訪問人數 (錯誤)。請檢查控制台錯誤訊息。';
                 if (error.code === 'permission-denied') {
-                    console.error("錯誤提示: Firebase 權限不足。請檢查您的 Firestore 安全規則，確保允許讀取 `/artifacts/{appId}/public/data/user_visits`。");
+                    console.error("Error: Firebase permission denied. Please check your Firestore security rules to ensure read access to `/artifacts/{appId}/public/data/user_visits`.");
                 }
             }
         }
 
         /**
-         * 從 Firestore 載入指定科目的測驗進度。
-         * @param {string} subjectId - 科目 ID。
-         * @returns {Promise<Object|null>} - 測驗進度資料或 null。
+         * Loads quiz progress for a given subject from Firestore.
+         * @param {string} subjectId - The subject ID.
+         * @returns {Promise<Object|null>} - Quiz progress data or null.
          */
         async function loadQuizProgress(subjectId) {
             if (!db || !currentUserId || !effectiveAppId) {
-                console.warn("無法載入進度：Firebase 未初始化或用戶 ID 無效。");
+                console.warn("Cannot load progress: Firebase not initialized or user ID invalid.");
                 return null;
             }
 
@@ -1574,62 +1576,63 @@
             try {
                 const docSnap = await getDoc(progressDocRef);
                 if (docSnap.exists()) {
-                    console.log(`測驗進度已載入 (科目: ${subjectId})`);
+                    console.log(`Quiz progress loaded (Subject: ${subjectId})`);
                     return docSnap.data();
                 } else {
-                    console.log(`未找到測驗進度 (科目: ${subjectId})`);
+                    console.log(`No quiz progress found (Subject: ${subjectId})`);
                     return null;
                 }
             } catch (error) {
-                console.error("載入測驗進度失敗:", error);
+                console.error("Failed to load quiz progress:", error);
                 if (error.code === 'permission-denied') {
-                    console.error("錯誤提示: Firebase 權限不足。請檢查您的 Firestore 安全規則，確保允許匿名使用者在路徑 `/artifacts/{appId}/users/{userId}/quiz_progress/{subjectId}` 上進行讀取操作。");
+                    console.error("Error: Firebase permission denied. Please check your Firestore security rules to ensure anonymous users can read on path `/artifacts/{appId}/users/{userId}/quiz_progress/{subjectId}`.");
                 }
                 return null;
             }
         }
 
         /**
-         * 檢查並顯示是否有儲存的測驗進度。
+         * Checks and displays if there is saved quiz progress.
          */
         async function checkAndDisplaySavedProgress() {
             if (!currentUserId) {
-                console.log("用戶 ID 尚未準備好，無法檢查進度。");
+                console.log("User ID not ready, cannot check progress.");
                 return;
             }
 
             const defaultSubject = subjectSelect.value;
             loadedProgressData = await loadQuizProgress(defaultSubject);
 
-            if (loadedProgressData) {
+            if (loadedProgressData && loadedProgressData.selectedQuizData && loadedProgressData.selectedQuizData.length > 0) {
                 continueQuizMessage.textContent = `您有未完成的「${subjectNames[defaultSubject]}」測驗進度 (暱稱: ${currentUserDisplayName || '匿名用戶'})。`;
-                continueQuizPrompt.style.display = 'flex'; // 顯示繼續測驗提示
-                subjectSelectionArea.style.display = 'none'; // 隱藏科目選擇區域
+                continueQuizPrompt.style.display = 'flex'; // Show continue quiz prompt
+                subjectSelectionArea.style.display = 'none'; // Hide subject selection area
             } else {
-                continueQuizPrompt.style.display = 'none'; // 隱藏繼續測驗提示
-                subjectSelectionArea.style.display = 'block'; // 顯示科目選擇區域
-                getQuestionCounts(); // 顯示題目數量
+                continueQuizPrompt.style.display = 'none'; // Hide continue quiz prompt
+                subjectSelectionArea.style.display = 'block'; // Show subject selection area
+                getQuestionCounts(); // Display question counts
             }
         }
 
         /**
-         * 獲取問題的唯一識別碼。
-         * 建議：如果您的 JSON 題目資料中有 'id' 欄位，請優先使用它。
-         * 如果沒有，則使用 'question' 文本作為識別碼。
-         * @param {Object} question - 題目物件。
-         * @returns {string} - 題目的唯一識別碼。
+         * Gets the unique identifier for a question.
+         * Recommendation: If your JSON question data has an 'id' field, prioritize using it.
+         * Otherwise, use the 'question' text as the identifier.
+         * @param {Object} question - The question object.
+         * @returns {string} - The unique identifier for the question.
          */
         function getQuestionIdentifier(question) {
-            // 優先使用題目中的 'id' 欄位（如果存在）
+            // Prioritize using the 'id' field in the question (if it exists)
             if (question.id) {
                 return question.id;
             }
-            // 否則，使用題目文本作為識別碼
+            // Otherwise, use the question text as the identifier
             return question.question;
         }
 
         /**
-         * 初始化測驗資料：從完整題目中隨機抽取 50 題，優先選取未做過的題目。
+         * Initializes quiz data: randomly selects 50 questions from the full set,
+         * prioritizing unplayed questions.
          */
         function initializeQuizData() {
             const currentSubjectId = subjectSelect.value;
@@ -1639,7 +1642,7 @@
             let newQuestions = [];
             let recycledQuestions = [];
 
-            // 將題目分為「新題目」和「已做過題目」
+            // Divide questions into "new questions" and "already played questions"
             fullQuizData.forEach(question => {
                 const questionId = getQuestionIdentifier(question);
                 if (playedQuestionIds.has(questionId)) {
@@ -1649,28 +1652,28 @@
                 }
             });
 
-            // 洗牌新題目和已做過題目
+            // Shuffle new questions and recycled questions
             shuffleArray(newQuestions);
             shuffleArray(recycledQuestions);
 
             selectedQuizData = [];
             const desiredQuizLength = 50;
 
-            // 優先從新題目中選取
+            // Prioritize selecting from new questions
             for (let i = 0; i < newQuestions.length && selectedQuizData.length < desiredQuizLength; i++) {
                 selectedQuizData.push(newQuestions[i]);
             }
 
-            // 如果新題目不足，從已做過題目中補充
+            // If new questions are not enough, supplement from recycled questions
             for (let i = 0; i < recycledQuestions.length && selectedQuizData.length < desiredQuizLength; i++) {
                 selectedQuizData.push(recycledQuestions[i]);
             }
 
-            // 如果最終選取的題目少於 desiredQuizLength，則從 fullQuizData 中隨機補充
-            // 這主要用於題目總數小於 desiredQuizLength 的情況
+            // If the final selected questions are less than desiredQuizLength, supplement randomly from fullQuizData
+            // This is mainly for cases where the total number of questions is less than desiredQuizLength
             if (selectedQuizData.length < desiredQuizLength && fullQuizData.length > 0) {
                 const missingCount = desiredQuizLength - selectedQuizData.length;
-                const remainingQuestions = shuffleArray([...fullQuizData]); // 重新洗牌所有題目
+                const remainingQuestions = shuffleArray([...fullQuizData]); // Reshuffle all questions
                 const currentSelectedIds = new Set(selectedQuizData.map(q => getQuestionIdentifier(q)));
 
                 for (let i = 0; i < remainingQuestions.length && selectedQuizData.length < desiredQuizLength; i++) {
@@ -1678,21 +1681,21 @@
                     const questionId = getQuestionIdentifier(question);
                     if (!currentSelectedIds.has(questionId)) {
                         selectedQuizData.push(question);
-                        currentSelectedIds.add(questionId); // 更新已選取ID集合
+                        currentSelectedIds.add(questionId); // Update selected ID set
                     }
                 }
             }
 
-            // 最後，更新 localStorage 中的 playedQuestionIds
+            // Finally, update playedQuestionIds in localStorage
             const currentQuizQuestionIds = selectedQuizData.map(q => getQuestionIdentifier(q));
             localStorage.setItem(playedQuestionIdsKey, JSON.stringify(currentQuizQuestionIds));
 
-            console.log(`為科目 ${currentSubjectId} 選取了 ${selectedQuizData.length} 道題目。其中有 ${newQuestions.length} 道新題目，${recycledQuestions.length} 道重複題目。`);
+            console.log(`Selected ${selectedQuizData.length} questions for subject ${currentSubjectId}. Including ${newQuestions.length} new questions and ${recycledQuestions.length} recycled questions.`);
         }
 
 
         /**
-         * 載入並顯示當前問題及其選項。
+         * Loads and displays the current question and its options.
          */
         function loadQuestion() {
             if (selectedQuizData.length === 0) {
@@ -1705,43 +1708,43 @@
             }
 
             const questionData = selectedQuizData[currentQuestionIndex];
-            currentSubjectTitle.textContent = subjectNames[subjectSelect.value]; // 確保這裡顯示的是當前科目名稱
+            currentSubjectTitle.textContent = subjectNames[subjectSelect.value]; // Ensure current subject name is displayed here
             questionNumberElement.textContent = `問題 ${currentQuestionIndex + 1} / ${selectedQuizData.length}`;
             questionTextElement.textContent = questionData.question;
-            optionsContainer.innerHTML = ''; // 清空選項
+            optionsContainer.innerHTML = ''; // Clear options
 
-            // 將選項內容及其原始標籤配對，以便洗牌後仍能追蹤正確答案
+            // Pair option content with their original labels, so correct answer can be tracked after shuffling
             const optionsWithOriginalLabels = questionData.options.map((optionContent, index) => ({
                 content: optionContent,
                 originalLabel: optionLabels[index]
             }));
 
-            // 洗牌選項
+            // Shuffle options
             const shuffledOptions = shuffleArray(optionsWithOriginalLabels);
 
             shuffledOptions.forEach((optionItem, index) => {
                 const button = document.createElement('button');
                 button.className = 'option-button';
-                // 顯示新的選項標籤 (A, B, C, D) 和選項內容
+                // Display new option labels (A, B, C, D) and option content
                 button.innerHTML = `<span class="option-label">${optionLabels[index]}</span> ${optionItem.content}`;
-                // 儲存此選項內容的原始標籤，用於檢查答案正確性
+                // Store the original label for this option content, used for checking answer correctness
                 button.dataset.originalLabelForContent = optionItem.originalLabel;
-                // 儲存實際內容，用於顯示在回饋中
+                // Store actual content, for display in feedback
                 button.dataset.optionContent = optionItem.content; 
 
-                // 為按鈕添加點擊事件監聽器
+                // Add click event listener to the button
                 button.addEventListener('click', () => selectOption(button, optionItem.originalLabel));
                 optionsContainer.appendChild(button);
             });
 
-            // 如果用戶之前已經回答過此問題，則顯示其選擇和回饋
+            // If the user has previously answered this question, display their choice and feedback
             if (userAnswers[currentQuestionIndex]) {
                 const selectedOriginalLabel = userAnswers[currentQuestionIndex].selectedOriginalLabel;
                 const correctOptionLabel = selectedQuizData[currentQuestionIndex].answer;
 
                 const buttons = optionsContainer.querySelectorAll('.option-button');
                 buttons.forEach(button => {
-                    button.classList.add('disabled'); // 禁用所有選項
+                    button.classList.add('disabled'); // Disable all options
                     if (button.dataset.originalLabelForContent === selectedOriginalLabel) {
                         button.classList.add('selected');
                         if (selectedOriginalLabel === correctOptionLabel) {
@@ -1750,19 +1753,19 @@
                             button.classList.add('incorrect');
                         }
                     }
-                    // 標記正確答案
+                    // Mark correct answer
                     if (button.dataset.originalLabelForContent === correctOptionLabel) {
                         button.classList.add('correct');
                     }
                 });
                 showFeedback(selectedQuizData[currentQuestionIndex].explanation, userAnswers[currentQuestionIndex].isCorrect);
-                askGeminiButton.style.display = 'inline-block'; // 顯示 Gemini 按鈕
+                askGeminiButton.style.display = 'inline-block'; // Show Gemini button
             } else {
                 hideFeedback();
-                askGeminiButton.style.display = 'none'; // 隱藏 Gemini 按鈕
+                askGeminiButton.style.display = 'none'; // Hide Gemini button
             }
 
-            // 清空 Gemini 模態框內容
+            // Clear Gemini modal content
             geminiQuestionInput.value = '';
             geminiResponseArea.innerHTML = '';
             geminiResponseArea.style.display = 'none';
@@ -1772,12 +1775,12 @@
         }
 
         /**
-         * 處理用戶選擇選項的邏輯。
-         * @param {HTMLElement} selectedButton - 用戶點擊的選項按鈕元素。
-         * @param {string} selectedOriginalLabel - 被選選項的原始標籤 (A, B, C, D)。
+         * Handles the logic when a user selects an option.
+         * @param {HTMLElement} selectedButton - The option button element clicked by the user.
+         * @param {string} selectedOriginalLabel - The original label (A, B, C, D) of the selected option.
          */
         async function selectOption(selectedButton, selectedOriginalLabel) {
-            // 如果已經有答案，則不允許再次選擇
+            // If there is already an answer, do not allow re-selection
             if (userAnswers[currentQuestionIndex]) {
                 return;
             }
@@ -1785,59 +1788,59 @@
             const buttons = optionsContainer.querySelectorAll('.option-button');
             buttons.forEach(button => {
                 button.classList.remove('selected');
-                button.classList.add('disabled'); // 禁用所有選項
+                button.classList.add('disabled'); // Disable all options
             });
 
             selectedButton.classList.add('selected');
 
             const questionData = selectedQuizData[currentQuestionIndex];
-            const correctOptionLabel = questionData.answer; // 正確答案的原始標籤 (例如 'C')
+            const correctOptionLabel = questionData.answer; // Original label of the correct answer (e.g., 'C')
             
-            // 根據原始標籤獲取正確答案的實際內容
+            // Get the actual content of the correct answer based on the original label
             const correctOptionContent = questionData.options[optionLabels.indexOf(correctOptionLabel)];
 
-            // 檢查所選選項的原始標籤是否與正確答案的原始標籤匹配
+            // Check if the original label of the selected option matches the original label of the correct answer
             const isCorrect = (selectedOriginalLabel === correctOptionLabel);
 
             if (isCorrect) {
                 selectedButton.classList.add('correct');
-                score++; // 答對加分
+                score++; // Increment score if correct
             } else {
                 selectedButton.classList.add('incorrect');
-                // 記錄答錯的題目
+                // Record incorrectly answered question
                 incorrectQuestions.push({
                     question: questionData.question,
-                    selectedOption: selectedOriginalLabel, // 儲存原始標籤
-                    selectedOptionContent: selectedButton.dataset.optionContent, // 實際內容
-                    correctOption: correctOptionLabel, // 原始正確標籤 (A, B, C, D)
-                    correctOptionContent: correctOptionContent, // 正確選項的實際內容
+                    selectedOption: selectedOriginalLabel, // Store original label
+                    selectedOptionContent: selectedButton.dataset.optionContent, // Actual content
+                    correctOption: correctOptionLabel, // Original correct label (A, B, C, D)
+                    correctOptionContent: correctOptionContent, // Actual content of the correct option
                     explanation: questionData.explanation
                 });
             }
 
-            // 標記正確答案
+            // Mark correct answer
             buttons.forEach(button => {
                 if (button.dataset.originalLabelForContent === correctOptionLabel) {
                     button.classList.add('correct');
                 }
             });
 
-            // 儲存用戶的答案
+            // Store user's answer
             userAnswers[currentQuestionIndex] = {
                 selectedOriginalLabel: selectedOriginalLabel,
                 isCorrect: isCorrect
             };
 
             showFeedback(questionData.explanation, isCorrect);
-            askGeminiButton.style.display = 'inline-block'; // 顯示 Gemini 按鈕
-            updateNavigationButtons(); // 啟用下一題按鈕
-            await saveQuizProgress(subjectSelect.value); // 在每次選擇後保存進度
+            askGeminiButton.style.display = 'inline-block'; // Show Gemini button
+            updateNavigationButtons(); // Enable next question button
+            await saveQuizProgress(subjectSelect.value); // Save progress after each selection
         }
 
         /**
-         * 顯示問題回饋（正確或錯誤及解釋）。
-         * @param {string} explanation - 問題的解釋。
-         * @param {boolean} isCorrect - 用戶答案是否正確。
+         * Displays question feedback (correct or incorrect and explanation).
+         * @param {string} explanation - The explanation for the question.
+         * @param {boolean} isCorrect - Whether the user's answer was correct.
          */
         function showFeedback(explanation, isCorrect) {
             feedbackTitleElement.textContent = isCorrect ? '✅ 恭喜您，回答正確！' : '❌ 很抱歉，回答錯誤。';
@@ -1846,20 +1849,20 @@
         }
 
         /**
-         * 隱藏問題回饋。
+         * Hides question feedback.
          */
         function hideFeedback() {
             feedbackContainer.classList.remove('show');
         }
 
         /**
-         * 更新導航按鈕 (上一題、下一題、交卷) 的狀態。
+         * Updates the state of navigation buttons (Previous, Next, Submit Early).
          */
         function updateNavigationButtons() {
             prevButton.disabled = currentQuestionIndex === 0;
-            // 下一題按鈕只有在當前題目作答後才啟用
+            // Next button is enabled only after the current question is answered
             nextButton.disabled = !userAnswers[currentQuestionIndex];
-            submitEarlyButton.disabled = false; // 測驗期間始終啟用交卷按鈕
+            submitEarlyButton.disabled = false; // Submit Early button is always enabled during the quiz
 
             if (currentQuestionIndex === selectedQuizData.length - 1) {
                 nextButton.textContent = '完成測驗';
@@ -1868,9 +1871,9 @@
             }
         }
 
-        // 下一題按鈕點擊事件監聽器
-        nextButton.addEventListener('click', async () => { // 添加 async
-            // 只有當前題目作答後才能點擊下一題
+        // Next button click event listener
+        nextButton.addEventListener('click', async () => { // Add async
+            // Only allow clicking next if the current question has been answered
             if (!userAnswers[currentQuestionIndex]) {
                 return;
             }
@@ -1878,49 +1881,49 @@
             if (currentQuestionIndex < selectedQuizData.length - 1) {
                 currentQuestionIndex++;
                 loadQuestion();
-                await saveQuizProgress(subjectSelect.value); // 在導航後保存進度
+                await saveQuizProgress(subjectSelect.value); // Save progress after navigation
             } else {
-                // 完成測驗
+                // Quiz completed
                 showQuizSummary();
             }
         });
 
-        // 上一題按鈕點擊事件監聽器
-        prevButton.addEventListener('click', async () => { // 添加 async
+        // Previous button click event listener
+        prevButton.addEventListener('click', async () => { // Add async
             if (currentQuestionIndex > 0) {
                 currentQuestionIndex--;
                 loadQuestion();
-                await saveQuizProgress(subjectSelect.value); // 在導航後保存進度
+                await saveQuizProgress(subjectSelect.value); // Save progress after navigation
             }
         });
 
-        // 交卷按鈕點擊事件監聽器
+        // Submit Early button click event listener
         submitEarlyButton.addEventListener('click', () => {
-            confirmationModalOverlay.style.display = 'flex'; // 顯示確認模態框
+            confirmationModalOverlay.style.display = 'flex'; // Show confirmation modal
         });
 
-        // 確認交卷按鈕點擊事件監聽器
+        // Confirm Submit button click event listener
         confirmYesButton.addEventListener('click', () => {
-            confirmationModalOverlay.style.display = 'none'; // 隱藏確認模態框
-            showQuizSummary(); // 繼續顯示測驗總結
+            confirmationModalOverlay.style.display = 'none'; // Hide confirmation modal
+            showQuizSummary(); // Proceed to show quiz summary
         });
 
-        // 取消交卷按鈕點擊事件監聽器
+        // Cancel Submit button click event listener
         confirmNoButton.addEventListener('click', () => {
-            confirmationModalOverlay.style.display = 'none'; // 隱藏確認模態框
+            confirmationModalOverlay.style.display = 'none'; // Hide confirmation modal
         });
 
         /**
-         * 顯示測驗總結頁面，計算分數並顯示錯題回顧。
+         * Displays the quiz summary page, calculates score, and shows incorrect questions review.
          */
         async function showQuizSummary() {
-            stopTimer(); // 停止計時器
+            stopTimer(); // Stop the timer
             quizContent.style.display = 'none';
             quizSummary.classList.add('show');
-            timerDisplay.style.display = 'none'; // 隱藏計時器
+            timerDisplay.style.display = 'none'; // Hide timer
 
-            const finalScorePoints = score * POINTS_PER_QUESTION; // 計算最終分數
-            summaryScoreElement.textContent = `${finalScorePoints} 分`; // 顯示分數
+            const finalScorePoints = score * POINTS_PER_QUESTION; // Calculate final score
+            summaryScoreElement.textContent = `${finalScorePoints} 分`; // Display score
             let message = '';
             const percentage = (score / selectedQuizData.length) * 100;
             if (percentage === 100) {
@@ -1934,8 +1937,8 @@
             }
             summaryMessageElement.textContent = message;
 
-            // 顯示錯題回顧
-            incorrectQuestionsSummaryElement.innerHTML = ''; // 清空之前的錯題
+            // Display incorrect questions review
+            incorrectQuestionsSummaryElement.innerHTML = ''; // Clear previous incorrect questions
             if (incorrectQuestions.length > 0) {
                 const title = document.createElement('h3');
                 title.className = 'feedback-title text-xl mb-4';
@@ -1959,19 +1962,19 @@
                 incorrectQuestionsSummaryElement.appendChild(noIncorrect);
             }
 
-            // 將分數儲存到排行榜
-            await saveQuizScoreToLeaderboard(finalScorePoints); // 傳遞計算後的總分
-            // 清除當前科目的進度，因為測驗已經完成
+            // Save score to leaderboard
+            await saveQuizScoreToLeaderboard(finalScorePoints); // Pass the calculated total score
+            // Clear progress for the current subject as the quiz is completed
             await clearQuizProgress(subjectSelect.value);
         }
 
         /**
-         * 載入 JSON 題目資料。
-         * @param {string} jsonFileName - JSON 檔案名。
-         * @param {boolean} isContinuing - 是否為繼續上次測驗。
+         * Loads JSON question data.
+         * @param {string} jsonFileName - The JSON file name.
+         * @param {boolean} isContinuing - Whether to continue a previous quiz.
          */
         async function loadFullQuizData(jsonFileName, isContinuing = false) {
-            showGlobalLoading(); // 顯示載入中
+            showGlobalLoading(); // Show loading indicator
             initialSelectionScreen.style.display = 'none';
             loadingIndicator.style.display = 'block';
             quizContent.style.display = 'none';
@@ -1983,38 +1986,42 @@
             viewLeaderboardButton.style.display = 'none';
 
             try {
-                if (!isContinuing) { // 如果不是繼續測驗，則從頭載入 JSON
+                if (!isContinuing) { // If not continuing quiz, load JSON from scratch
                     const githubRawUrl = `https://raw.githubusercontent.com/ss1111119/ipas_AI-Planner-Exam/main/${jsonFileName}`;
                     const response = await fetch(githubRawUrl);
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     fullQuizData = await response.json();
-                    initializeQuizData(); // 載入資料後再初始化隨機題目
-                    currentQuestionIndex = 0; // 重置題目索引
-                    userAnswers = []; // 清空答案
-                    score = 0; // 重置答對題數
-                    incorrectQuestions = []; // 清空錯題
-                    timeRemaining = quizDurationInSeconds; // 重置計時器
+                    initializeQuizData(); // Initialize random questions after loading data
+                    currentQuestionIndex = 0; // Reset question index
+                    userAnswers = []; // Clear answers
+                    score = 0; // Reset correct answer count
+                    incorrectQuestions = []; // Clear incorrect questions
+                    timeRemaining = quizDurationInSeconds; // Reset timer
+                    quizStartTime = Date.now(); // Set quiz start time
+                    lastActiveTime = Date.now(); // Set last active time
                 } else {
-                    // 如果是繼續測驗，則使用已載入的進度資料
+                    // If continuing quiz, use loaded progress data
                     currentQuestionIndex = loadedProgressData.currentQuestionIndex ?? 0;
                     userAnswers = loadedProgressData.userAnswers || [];
-                    score = loadedProgressData.score ?? 0; // 這裡的 score 仍然是答對題數
+                    score = loadedProgressData.score ?? 0; // Score here is still the number of correct answers
                     incorrectQuestions = loadedProgressData.incorrectQuestions || [];
                     timeRemaining = loadedProgressData.timeRemaining ?? quizDurationInSeconds;
-                    selectedQuizData = loadedProgressData.selectedQuizData || []; // 使用儲存的選定題目
+                    selectedQuizData = loadedProgressData.selectedQuizData || []; // Use stored selected questions
+                    quizStartTime = loadedProgressData.quizStartTime ?? Date.now(); // Load quiz start time
+                    lastActiveTime = loadedProgressData.lastActiveTime ?? Date.now(); // Load last active time
                 }
                 
-                loadQuestion(); // 載入第一題
-                quizContent.style.display = 'block'; // 顯示測驗內容
-                currentSubjectTitle.textContent = subjectNames[jsonFileName]; // 更新科目標題
-                startTimer(); // 啟動計時器
+                loadQuestion(); // Load the first question
+                quizContent.style.display = 'block'; // Show quiz content
+                currentSubjectTitle.textContent = subjectNames[jsonFileName]; // Update subject title
+                startTimer(); // Start the timer
             } catch (error) {
-                console.error('載入測驗資料失敗:', error);
+                console.error('Failed to load quiz data:', error);
                 loadingIndicator.textContent = `載入題目失敗：${subjectNames[jsonFileName]}。請檢查 GitHub 上的 JSON 檔案路徑或內容格式是否正確。錯誤: ${error.message}`;
                 loadingIndicator.style.display = 'block';
-                // 發生錯誤時，返回初始狀態讓用戶重試
+                // On error, return to initial state for user to retry
                 initialSelectionScreen.style.display = 'flex';
                 subjectSelectionArea.style.display = 'block';
                 questionCountsElement.style.display = 'block';
@@ -2023,96 +2030,96 @@
                 viewLeaderboardButton.style.display = 'block';
                 return;
             } finally {
-                // 只有在資料成功載入或為繼續測驗時才隱藏載入指示器
+                // Only hide loading indicator if data loaded successfully or continuing quiz
                 if (fullQuizData.length > 0 || isContinuing) { 
                     loadingIndicator.style.display = 'none';
                 }
-                hideGlobalLoading(); // 無論成功或失敗，都隱藏全域載入中
+                hideGlobalLoading(); // Hide global loading regardless of success or failure
             }
         }
 
-        // 重新測驗按鈕點擊事件監聽器
+        // Restart Quiz button click event listener
         restartButton.addEventListener('click', () => {
-            showGlobalLoading(); // 顯示載入中
-            // 重新顯示環境選擇畫面，並隱藏測驗內容和總結
+            showGlobalLoading(); // Show loading indicator
+            // Re-display environment selection screen, and hide quiz content and summary
             environmentSelectionScreen.style.display = 'flex';
             initialSelectionScreen.style.display = 'none';
             quizContent.style.display = 'none';
             quizSummary.classList.remove('show');
             askGeminiButton.style.display = 'none';
-            stopTimer(); // 確保計時器停止
+            stopTimer(); // Ensure timer stops
             timerDisplay.style.display = 'none';
-            // 重新獲取並顯示訪問人數
+            // Re-fetch and display visitor count
             getAndDisplayUserCount().finally(() => {
-                hideGlobalLoading(); // 確保讀取完成後隱藏載入中
+                hideGlobalLoading(); // Ensure loading is hidden after reading
             }); 
         });
 
-        // 「開始測驗」按鈕點擊事件監聽器 (從科目選擇畫面觸發)
+        // "Start Quiz" button click event listener (triggered from subject selection screen)
         startQuizButton.addEventListener('click', () => {
-            loadFullQuizData(subjectSelect.value, false); // 開始新測驗
+            loadFullQuizData(subjectSelect.value, false); // Start a new quiz
         });
 
-        // 「繼續測驗」按鈕點擊事件監聽器
+        // "Continue Quiz" button click event listener
         continueQuizButton.addEventListener('click', () => {
-            loadFullQuizData(loadedProgressData.subjectId, true); // 繼續上次測驗
+            loadFullQuizData(loadedProgressData.subjectId, true); // Continue previous quiz
         });
 
-        // 「開始新測驗」按鈕點擊事件監聽器
+        // "Start New Quiz" button click event listener
         startNewQuizButton.addEventListener('click', async () => {
-            // 清除選定科目的現有進度
+            // Clear existing progress for the selected subject
             await clearQuizProgress(subjectSelect.value); 
-            loadFullQuizData(subjectSelect.value, false); // 開始一個全新的測驗
+            loadFullQuizData(subjectSelect.value, false); // Start a brand new quiz
         });
 
-        // Gemini 相關事件監聽器
+        // Gemini related event listeners
         askGeminiButton.addEventListener('click', () => {
-            // 如果是 GitHub Pages 環境且沒有設定 API 金鑰，則提示輸入
+            // If in GitHub Pages environment and no API key is set, prompt for input
             if (currentEnvironment === 'github-pages' && !geminiApiKey) {
                 apiKeyModalOverlay.style.display = 'flex';
                 geminiApiKeyInput.focus();
                 return;
             }
-            geminiModalOverlay.style.display = 'flex'; // 顯示模態框
-            geminiQuestionInput.focus(); // 輸入框自動獲取焦點
+            geminiModalOverlay.style.display = 'flex'; // Show modal
+            geminiQuestionInput.focus(); // Input field automatically gets focus
         });
 
         geminiModalClose.addEventListener('click', () => {
-            geminiModalOverlay.style.display = 'none'; // 隱藏模態框
-            geminiResponseArea.innerHTML = ''; // 清空回應內容
+            geminiModalOverlay.style.display = 'none'; // Hide modal
+            geminiResponseArea.innerHTML = ''; // Clear response content
             geminiResponseArea.style.display = 'none';
-            geminiQuestionInput.value = ''; // 清空輸入框
+            geminiQuestionInput.value = ''; // Clear input field
             geminiLoadingIndicator.style.display = 'none';
         });
 
-        // Gemini 提問模態框取消按鈕的事件監聽器
+        // Gemini Question Modal Cancel button event listener
         geminiModalCancelButton.addEventListener('click', () => {
-            geminiModalOverlay.style.display = 'none'; // 隱藏模態框
+            geminiModalOverlay.style.display = 'none'; // Hide modal
             geminiResponseArea.innerHTML = '';
             geminiResponseArea.style.display = 'none';
             geminiQuestionInput.value = '';
             geminiLoadingIndicator.style.display = 'none';
         });
 
-        // API 金鑰模態框取消按鈕的事件監聽器
+        // API Key Modal Cancel button event listener
         apiKeyModalCancelButton.addEventListener('click', () => {
-            apiKeyModalOverlay.style.display = 'none'; // 隱藏 API 金鑰模態框
+            apiKeyModalOverlay.style.display = 'none'; // Hide API Key modal
             geminiApiKeyInput.value = '';
         });
 
-        // 處理 API 金鑰提交
+        // Handle API Key submission
         submitApiKeyButton.addEventListener('click', () => {
             const inputKey = geminiApiKeyInput.value.trim();
             if (inputKey) {
-                geminiApiKey = inputKey; // 儲存輸入的金鑰
-                apiKeyModalOverlay.style.display = 'none'; // 隱藏 API 金鑰模態框
-                askGeminiButton.click(); // 重新觸發詢問 Gemini 按鈕的點擊事件
+                geminiApiKey = inputKey; // Store the entered key
+                apiKeyModalOverlay.style.display = 'none'; // Hide API Key modal
+                askGeminiButton.click(); // Re-trigger click event for Ask Gemini button
             } else {
                 showConfirmationModal('提示', '請輸入有效的 Gemini API 金鑰。', null, true);
             }
         });
 
-        // 提交 Gemini 問題按鈕點擊事件監聽器
+        // Submit Gemini Question button click event listener
         submitGeminiQuestionButton.addEventListener('click', async () => {
             const userQuestion = geminiQuestionInput.value.trim();
             if (!userQuestion) {
@@ -2123,7 +2130,7 @@
 
             geminiResponseArea.innerHTML = '';
             geminiResponseArea.style.display = 'none';
-            geminiLoadingIndicator.style.display = 'block'; // 顯示載入指示器
+            geminiLoadingIndicator.style.display = 'block'; // Show loading indicator
 
             const currentQuestionData = selectedQuizData[currentQuestionIndex];
             const prompt = `關於以下測驗題目：
@@ -2144,7 +2151,7 @@ D) ${currentQuestionData.options[3]}
                 let chatHistory = [];
                 chatHistory.push({ role: "user", parts: [{ text: prompt }] });
                 const payload = { contents: chatHistory };
-                // 根據環境使用動態設定的 Gemini API 金鑰
+                // Use dynamically set Gemini API key based on environment
                 const apiKeyToUse = (currentEnvironment === 'github-pages') ? geminiApiKey : ""; 
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKeyToUse}`;
 
@@ -2169,15 +2176,15 @@ D) ${currentQuestionData.options[3]}
                 geminiResponseArea.textContent = '發生錯誤，無法連接到 Gemini 服務。請檢查您的網路連線。';
                 console.error('Error calling Gemini API:', error);
             } finally {
-                geminiLoadingIndicator.style.display = 'none'; // 隱藏載入指示器
-                geminiResponseArea.style.display = 'block'; // 顯示回應區域
+                geminiLoadingIndicator.style.display = 'none'; // Hide loading indicator
+                geminiResponseArea.style.display = 'block'; // Show response area
             }
         });
 
         /**
-         * 將秒數格式化為 MM:SS 的時間字串。
-         * @param {number} seconds - 要格式化的秒數。
-         * @returns {string} - 格式化後的時間字串。
+         * Formats seconds into an MM:SS time string.
+         * @param {number} seconds - The number of seconds to format.
+         * @returns {string} - The formatted time string.
          */
         function formatTime(seconds) {
             const minutes = Math.floor(seconds / 60);
@@ -2186,15 +2193,22 @@ D) ${currentQuestionData.options[3]}
         }
 
         /**
-         * 啟動測驗計時器。
+         * Starts the quiz timer.
          */
         function startTimer() {
-            // 如果不是從儲存的進度繼續，則重置時間
+            // If not continuing from saved progress, reset time
             if (!loadedProgressData) {
                 timeRemaining = quizDurationInSeconds;
+                quizStartTime = Date.now(); // Set quiz start time for new quiz
             }
+            lastActiveTime = Date.now(); // Set last active time when timer starts/resumes
             timerDisplay.textContent = formatTime(timeRemaining);
-            timerDisplay.style.display = 'block'; // 測驗開始時顯示計時器
+            timerDisplay.style.display = 'block'; // Show timer when quiz starts
+
+            // Clear any existing interval to prevent multiple timers running
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
 
             timerInterval = setInterval(() => {
                 timeRemaining--;
@@ -2202,8 +2216,8 @@ D) ${currentQuestionData.options[3]}
 
                 if (timeRemaining <= 0) {
                     stopTimer();
-                    showQuizSummary(); // 時間到自動交卷
-                    // 禁用所有選項和導航按鈕，防止進一步互動
+                    showQuizSummary(); // Auto-submit when time runs out
+                    // Disable all options and navigation buttons to prevent further interaction
                     const buttons = optionsContainer.querySelectorAll('.option-button');
                     buttons.forEach(button => {
                         button.classList.add('disabled');
@@ -2216,18 +2230,18 @@ D) ${currentQuestionData.options[3]}
         }
 
         /**
-         * 停止測驗計時器。
+         * Stops the quiz timer.
          */
         function stopTimer() {
             clearInterval(timerInterval);
         }
 
         /**
-         * 顯示自定義的確認/訊息模態框。
-         * @param {string} title - 模態框標題。
-         * @param {string} message - 模態框訊息。
-         * @param {Function} onConfirmCallback - 確認時執行的回調函數。
-         * @param {boolean} isAlert - 是否為提示訊息 (只顯示一個「確定」按鈕)。
+         * Displays a custom confirmation/message modal.
+         * @param {string} title - The modal title.
+         * @param {string} message - The modal message.
+         * @param {Function} onConfirmCallback - Callback function to execute on confirmation.
+         * @param {boolean} isAlert - Whether it's an alert message (only shows an "OK" button).
          */
         function showConfirmationModal(title, message, onConfirmCallback, isAlert = false) {
             const modalTitle = confirmationModalOverlay.querySelector('.confirmation-modal-title');
@@ -2237,10 +2251,10 @@ D) ${currentQuestionData.options[3]}
             modalTitle.textContent = title;
             modalMessage.textContent = message;
 
-            modalButtons.innerHTML = ''; // 清空舊按鈕
+            modalButtons.innerHTML = ''; // Clear old buttons
 
             if (isAlert) {
-                // 如果是提示訊息，只顯示一個「確定」按鈕
+                // If it's an alert message, only show an "OK" button
                 const okButton = document.createElement('button');
                 okButton.id = 'confirm-ok-button';
                 okButton.className = 'confirmation-modal-button confirm-no';
@@ -2253,7 +2267,7 @@ D) ${currentQuestionData.options[3]}
                 });
                 modalButtons.appendChild(okButton);
             } else {
-                // 如果是確認訊息，顯示「確定交卷」和「取消」按鈕
+                // If it's a confirmation message, show "Confirm Submit" and "Cancel" buttons
                 const yesButton = document.createElement('button');
                 yesButton.id = 'confirm-yes-button';
                 yesButton.className = 'confirmation-modal-button confirm-yes';
@@ -2283,7 +2297,7 @@ D) ${currentQuestionData.options[3]}
         }
 
         /**
-         * 獲取並顯示每個科目的題目數量。
+         * Fetches and displays the number of questions for each subject.
          */
         async function getQuestionCounts() {
             questionCountsElement.innerHTML = '<p>正在載入題目數量...</p>';
@@ -2300,13 +2314,13 @@ D) ${currentQuestionData.options[3]}
                     const data = await response.json();
                     allCounts[fileName] = data.length;
                 } catch (error) {
-                    console.error(`載入 ${fileName} 題目數量失敗:`, error);
+                    console.error(`Failed to load question count for ${fileName}:`, error);
                     allCounts[fileName] = '載入失敗';
                     hasError = true;
                 }
             }
 
-            questionCountsElement.innerHTML = ''; // 清空載入訊息
+            questionCountsElement.innerHTML = ''; // Clear loading message
             if (hasError) {
                 questionCountsElement.innerHTML = '<p class="text-red-500">無法載入所有題目數量，請檢查網路連線或 GitHub 檔案路徑。</p>';
             }
@@ -2318,12 +2332,12 @@ D) ${currentQuestionData.options[3]}
         }
 
         /**
-         * 儲存測驗進度到 Firestore。
-         * @param {string} subjectId - 科目 ID。
+         * Saves quiz progress to Firestore.
+         * @param {string} subjectId - The subject ID.
          */
         async function saveQuizProgress(subjectId) {
             if (!db || !currentUserId || !effectiveAppId) {
-                console.warn("無法儲存進度：Firebase 未初始化或用戶 ID 無效。");
+                console.warn("Cannot save progress: Firebase not initialized or user ID invalid.");
                 return;
             }
 
@@ -2338,310 +2352,312 @@ D) ${currentQuestionData.options[3]}
                     incorrectQuestions: incorrectQuestions || [],
                     timeRemaining: timeRemaining !== undefined ? timeRemaining : quizDurationInSeconds,
                     selectedQuizData: selectedQuizData || [],
+                    quizStartTime: quizStartTime, // Save quiz start time
+                    lastActiveTime: Date.now(), // Update and save last active time
                     lastSaved: serverTimestamp()
                 };
                 
-                // 深度清理資料，移除所有 undefined 值
+                // Deep clean data, remove all undefined values
                 const cleanedDataToSave = removeUndefined(dataToSave);
 
-                await setDoc(progressDocRef, cleanedDataToSave, { merge: false }); // 覆蓋該科目的舊進度
-                console.log(`測驗進度已儲存 (科目: ${subjectId})`);
+                await setDoc(progressDocRef, cleanedDataToSave, { merge: false }); // Overwrite old progress for this subject
+                console.log(`Quiz progress saved (Subject: ${subjectId})`);
             } catch (error) {
-                console.error("儲存測驗進度失敗:", error);
+                console.error("Failed to save quiz progress:", error);
                 if (error.code === 'permission-denied') {
-                    console.error("錯誤提示: Firebase 權限不足。請檢查您的 Firestore 安全規則，確保允許匿名使用者在路徑 `/artifacts/{appId}/users/{userId}/quiz_progress/{subjectId}` 上進行讀寫操作。");
+                    console.error("Error: Firebase permission denied. Please check your Firestore security rules to ensure anonymous users can read/write on path `/artifacts/{appId}/users/{userId}/quiz_progress/{subjectId}`.");
                 }
             }
         }
 
         /**
-         * 清除 Firestore 中的測驗進度。
-         * @param {string} subjectId - 科目 ID。
+         * Clears quiz progress in Firestore.
+         * @param {string} subjectId - The subject ID.
          */
         async function clearQuizProgress(subjectId) {
             if (!db || !currentUserId || !effectiveAppId) {
-                console.warn("無法清除進度：Firebase 未初始化或用戶 ID 無效。");
+                console.warn("Cannot clear progress: Firebase not initialized or user ID invalid.");
                 return;
             }
             const progressDocRef = doc(db, 'artifacts', effectiveAppId, 'users', currentUserId, 'quiz_progress', subjectId);
             try {
-                await setDoc(progressDocRef, {}); // 設定為空物件以清除內容
-                console.log(`測驗進度已清除 (科目: ${subjectId})`);
-                loadedProgressData = null; // 清除本地已載入的資料
+                await setDoc(progressDocRef, {}); // Set to empty object to clear content
+                console.log(`Quiz progress cleared (Subject: ${subjectId})`);
+                loadedProgressData = null; // Clear locally loaded data
             } catch (error) {
-                console.error("清除測驗進度失敗:", error);
+                console.error("Failed to clear quiz progress:", error);
             }
         }
 
         /**
-         * 初始化 Firebase 服務 (應用程式、認證、Firestore)。
+         * Initializes Firebase services (app, auth, Firestore).
          */
         async function initializeFirebaseServices() {
             try {
-                console.log("initializeFirebaseServices: 開始初始化 Firebase 服務...");
+                console.log("initializeFirebaseServices: Starting Firebase service initialization...");
                 
                 let currentFirebaseConfig;
 
-                // 優先使用 Canvas 環境提供的 __firebase_config
+                // Prioritize __firebase_config provided by Canvas environment
                 if (typeof __firebase_config !== 'undefined') {
                     currentFirebaseConfig = JSON.parse(__firebase_config);
                     currentEnvironment = 'canvas';
-                    effectiveAppId = typeof __app_id !== 'undefined' ? __app_id : currentFirebaseConfig.appId; // Canvas 環境下，appId 使用 __app_id，如果沒有則用 __firebase_config 的 appId
-                    console.log("initializeFirebaseServices: 檢測到 Canvas 環境。使用 __firebase_config。");
+                    effectiveAppId = typeof __app_id !== 'undefined' ? __app_id : currentFirebaseConfig.appId; // In Canvas, appId uses __app_id, if not available then __firebase_config's appId
+                    console.log("initializeFirebaseServices: Canvas environment detected. Using __firebase_config.");
                 } else {
-                    currentFirebaseConfig = defaultFirebaseConfig; // GitHub Pages 環境使用硬編碼的配置
+                    currentFirebaseConfig = defaultFirebaseConfig; // GitHub Pages environment uses hardcoded config
                     currentEnvironment = 'github-pages';
-                    effectiveAppId = currentFirebaseConfig.appId; // GitHub Pages 環境使用 defaultFirebaseConfig 的 appId
-                    console.log("initializeFirebaseServices: 檢測到 GitHub Pages 環境。使用 defaultFirebaseConfig。");
+                    effectiveAppId = currentFirebaseConfig.appId; // GitHub Pages environment uses defaultFirebaseConfig's appId
+                    console.log("initializeFirebaseServices: GitHub Pages environment detected. Using defaultFirebaseConfig.");
                 }
 
-                console.log("initializeFirebaseServices: 實際使用的 Firebase Config:", currentFirebaseConfig);
-                console.log("initializeFirebaseServices: 實際使用的 App ID (effectiveAppId):", effectiveAppId);
+                console.log("initializeFirebaseServices: Actual Firebase Config used:", currentFirebaseConfig);
+                console.log("initializeFirebaseServices: Actual App ID used (effectiveAppId):", effectiveAppId);
 
                 if (!currentFirebaseConfig.apiKey || !currentFirebaseConfig.authDomain || !currentFirebaseConfig.projectId || !currentFirebaseConfig.appId) {
-                    console.error("initializeFirebaseServices: Firebase 配置不完整。請確保 apiKey, authDomain, projectId, 和 appId 都已提供。", currentFirebaseConfig);
-                    throw new Error("Firebase 配置不完整。請確保 apiKey, authDomain, projectId, 和 appId 都已提供。");
+                    console.error("initializeFirebaseServices: Incomplete Firebase configuration. Ensure apiKey, authDomain, projectId, and appId are provided.", currentFirebaseConfig);
+                    throw new Error("Incomplete Firebase configuration. Ensure apiKey, authDomain, projectId, and appId are provided.");
                 }
 
                 if (!app) {
                     app = initializeApp(currentFirebaseConfig); 
                     auth = getAuth(app); 
                     db = getFirestore(app); 
-                    console.log("initializeFirebaseServices: Firebase app, auth, db 已初始化。");
+                    console.log("initializeFirebaseServices: Firebase app, auth, db initialized.");
                 } else {
-                    console.log("initializeFirebaseServices: Firebase 服務已初始化，跳過重複初始化。");
+                    console.log("initializeFirebaseServices: Firebase services already initialized, skipping duplicate initialization.");
                 }
 
             } catch (error) {
-                console.error("initializeFirebaseServices: Firebase 初始化失敗:", error);
+                console.error("initializeFirebaseServices: Firebase initialization failed:", error);
                 userCountDisplay.textContent = '無法載入訪問人數 (初始化錯誤)。';
-                // 如果 Firebase 初始化失敗，直接顯示科目選擇畫面
+                // If Firebase initialization fails, directly show subject selection screen
                 environmentSelectionScreen.style.display = 'none';
                 initialSelectionScreen.style.display = 'flex';
                 continueQuizPrompt.style.display = 'none';
                 subjectSelectionArea.style.display = 'block';
-                getQuestionCounts(); // 仍然嘗試顯示題目數量
+                getQuestionCounts(); // Still try to display question counts
                 viewLeaderboardButton.style.display = 'block';
             }
         }
 
         /**
-         * 儲存使用者暱稱到 Firestore。
-         * @param {string} uid - Firebase 用戶 UID。
-         * @param {string} displayName - 要儲存的暱稱。
+         * Saves user display name to Firestore.
+         * @param {string} uid - Firebase user UID.
+         * @param {string} displayName - The display name to save.
          */
         async function saveUserDisplayNameToFirestore(uid, displayName) {
             if (!db || !uid || !effectiveAppId) {
-                console.warn("無法儲存顯示名稱：Firebase 未初始化或 UID 無效。");
+                console.warn("Cannot save display name: Firebase not initialized or UID invalid.");
                 return;
             }
             const userProfileDocRef = doc(db, 'artifacts', effectiveAppId, 'users', uid, 'profile', 'data');
             try {
                 await setDoc(userProfileDocRef, { displayName: displayName, lastUpdated: serverTimestamp() }, { merge: true });
-                console.log(`使用者顯示名稱已儲存: ${displayName} for UID: ${uid}`);
+                console.log(`User display name saved: ${displayName} for UID: ${uid}`);
             } catch (error) {
-                console.error("儲存使用者顯示名稱失敗:", error);
+                console.error("Failed to save user display name:", error);
                 if (error.code === 'permission-denied') {
-                    console.error("錯誤提示: Firebase 權限不足。請檢查您的 Firestore 安全規則，確保允許使用者在路徑 `/artifacts/{appId}/users/{userId}/profile/data` 上進行讀寫操作。");
+                    console.error("Error: Firebase permission denied. Please check your Firestore security rules to ensure users can read/write on path `/artifacts/{appId}/users/{userId}/profile/data`.");
                 }
             }
         }
 
         /**
-         * 從 Firestore 載入使用者暱稱。
-         * @param {string} uid - Firebase 用戶 UID。
-         * @returns {Promise<string|null>} - 載入的暱稱或 null。
+         * Loads user display name from Firestore.
+         * @param {string} uid - Firebase user UID.
+         * @returns {Promise<string|null>} - The loaded display name or null.
          */
         async function loadUserDisplayNameFromFirestore(uid) {
             if (!db || !uid || !effectiveAppId) {
-                console.warn("無法載入顯示名稱：Firebase 未初始化或 UID 無效。");
+                console.warn("Cannot load display name: Firebase not initialized or UID invalid.");
                 return null;
             }
             const userProfileDocRef = doc(db, 'artifacts', effectiveAppId, 'users', uid, 'profile', 'data');
             try {
                 const docSnap = await getDoc(userProfileDocRef);
                 if (docSnap.exists() && docSnap.data().displayName) {
-                    console.log(`從 Firestore 載入顯示名稱: ${docSnap.data().displayName} for UID: ${uid}`);
+                    console.log(`Loaded display name from Firestore: ${docSnap.data().displayName} for UID: ${uid}`);
                     return docSnap.data().displayName;
                 }
-                console.log(`未從 Firestore 載入顯示名稱 for UID: ${uid}`);
+                console.log(`No display name loaded from Firestore for UID: ${uid}`);
                 return null;
             } catch (error) {
-                console.error("載入使用者顯示名稱失敗:", error);
+                console.error("Failed to load user display name:", error);
                 return null;
             }
         }
 
         /**
-         * 處理使用者認證和資料載入流程。
+         * Handles user authentication and data loading process.
          */
         async function handleUserAuthenticationAndDataLoad() {
-            showGlobalLoading(); // 顯示載入中
-            console.log("handleUserAuthenticationAndDataLoad: 開始處理使用者認證和資料載入...");
+            showGlobalLoading(); // Show loading indicator
+            console.log("handleUserAuthenticationAndDataLoad: Starting user authentication and data loading...");
             if (!app || !auth || !db) {
-                console.error("handleUserAuthenticationAndDataLoad: Firebase 服務未初始化，無法處理使用者認證和資料載入。");
+                console.error("handleUserAuthenticationAndDataLoad: Firebase services not initialized, cannot handle user authentication and data loading.");
                 showConfirmationModal('錯誤', 'Firebase 服務未初始化，請重新整理頁面或稍後再試。', null, true);
-                hideGlobalLoading(); // 隱藏載入中
+                hideGlobalLoading(); // Hide loading indicator
                 return;
             }
 
             let firebaseAuthUid = null;
 
-            // 步驟 1: 執行 Firebase 認證 (自定義 Token 或匿名登入)
+            // Step 1: Perform Firebase authentication (Custom Token or Anonymous login)
             if (currentEnvironment === 'canvas') {
-                console.log("handleUserAuthenticationAndDataLoad: Canvas 環境認證中...");
+                console.log("handleUserAuthenticationAndDataLoad: Canvas environment authenticating...");
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     try {
                         const userCredential = await signInWithCustomToken(auth, __initial_auth_token);
                         firebaseAuthUid = userCredential.user.uid;
-                        console.log("Canvas: 已使用自定義 token 登入。UID:", firebaseAuthUid);
+                        console.log("Canvas: Signed in with custom token. UID:", firebaseAuthUid);
                     } catch (tokenError) {
-                        console.error("Canvas: 自定義 token 登入失敗，嘗試匿名登入:", tokenError);
+                        console.error("Canvas: Custom token sign-in failed, attempting anonymous sign-in:", tokenError);
                         try {
                             const userCredential = await signInAnonymously(auth);
                             firebaseAuthUid = userCredential.user.uid;
-                            console.log("Canvas: 自定義 token 失敗後，已匿名登入。UID:", firebaseAuthUid);
+                            console.log("Canvas: After custom token failure, signed in anonymously. UID:", firebaseAuthUid);
                         } catch (anonError) {
-                            console.error("Canvas: 匿名登入失敗:", anonError);
+                            console.error("Canvas: Anonymous sign-in failed:", anonError);
                             showConfirmationModal('錯誤', 'Canvas 環境登入失敗，請檢查網路連線或稍後再試。', null, true);
                             hideGlobalLoading();
                             return;
                         }
                     }
                 } else {
-                    console.log("Canvas: 無自定義 token，嘗試匿名登入...");
+                    console.log("Canvas: No custom token, attempting anonymous sign-in...");
                     try {
                         const userCredential = await signInAnonymously(auth);
                         firebaseAuthUid = userCredential.user.uid;
-                        console.log("Canvas: 已匿名登入。UID:", firebaseAuthUid);
+                        console.log("Canvas: Signed in anonymously. UID:", firebaseAuthUid);
                     } catch (anonError) {
-                        console.error("Canvas: 匿名登入失敗:", anonError);
+                        console.error("Canvas: Anonymous sign-in failed:", anonError);
                         showConfirmationModal('錯誤', 'Canvas 環境登入失敗，請檢查網路連線或稍後再試。', null, true);
                         hideGlobalLoading();
                         return;
                     }
                 }
-            } else { // GitHub Pages 環境
-                console.log("handleUserAuthenticationAndDataLoad: GitHub Pages 環境匿名認證中...");
-                // GitHub Pages 環境總是匿名登入以獲取 Firebase UID
+            } else { // GitHub Pages environment
+                console.log("handleUserAuthenticationAndDataLoad: GitHub Pages environment authenticating anonymously...");
+                // GitHub Pages environment always signs in anonymously to get Firebase UID
                 try {
                     const userCredential = await signInAnonymously(auth);
                     firebaseAuthUid = userCredential.user.uid;
-                    console.log("GitHub Pages: 已匿名登入。UID:", firebaseAuthUid);
+                    console.log("GitHub Pages: Signed in anonymously. UID:", firebaseAuthUid);
                 } catch (anonError) {
-                    console.error("GitHub Pages: 匿名登入失敗:", anonError);
+                    console.error("GitHub Pages: Anonymous sign-in failed:", anonError);
                     showConfirmationModal('錯誤', 'GitHub Pages 環境登入失敗，請檢查網路連線或稍後再試。', null, true);
                     hideGlobalLoading();
                     return;
                 }
             }
 
-            // 此時 firebaseAuthUid 應該已被設定，將其作為實際的 currentUserId
+            // At this point, firebaseAuthUid should be set, use it as the actual currentUserId
             currentUserId = firebaseAuthUid;
-            console.log("handleUserAuthenticationAndDataLoad: currentUserId 已設定為:", currentUserId);
+            console.log("handleUserAuthenticationAndDataLoad: currentUserId set to:", currentUserId);
 
-            // 步驟 2: 處理使用者顯示名稱
+            // Step 2: Handle user display name
             let storedDisplayName = localStorage.getItem('user_defined_display_name');
             if (storedDisplayName) {
                 currentUserDisplayName = storedDisplayName;
-                console.log("handleUserAuthenticationAndDataLoad: 從 localStorage 使用儲存的顯示名稱:", currentUserDisplayName);
-                // 同步儲存/更新到 Firestore 個人資料中
+                console.log("handleUserAuthenticationAndDataLoad: Using stored display name from localStorage:", currentUserDisplayName);
+                // Sync/update to Firestore profile
                 await saveUserDisplayNameToFirestore(currentUserId, currentUserDisplayName);
-                await proceedAfterUserIdSet(); // 如果找到顯示名稱，立即繼續
+                await proceedAfterUserIdSet(); // If display name found, proceed immediately
                 hideGlobalLoading();
             } else {
-                // 如果 localStorage 中沒有，嘗試從 Firestore 載入
+                // If not in localStorage, try loading from Firestore
                 const loadedDisplayName = await loadUserDisplayNameFromFirestore(currentUserId);
                 if (loadedDisplayName) {
                     currentUserDisplayName = loadedDisplayName;
-                    localStorage.setItem('user_defined_display_name', currentUserDisplayName); // 儲存到 localStorage 以便下次快速存取
-                    console.log("handleUserAuthenticationAndDataLoad: 從 Firestore 使用儲存的顯示名稱:", currentUserDisplayName);
-                    await proceedAfterUserIdSet(); // 如果找到顯示名稱，立即繼續
+                    localStorage.setItem('user_defined_display_name', currentUserDisplayName); // Save to localStorage for quick access next time
+                    console.log("handleUserAuthenticationAndDataLoad: Using stored display name from Firestore:", currentUserDisplayName);
+                    await proceedAfterUserIdSet(); // If display name found, proceed immediately
                     hideGlobalLoading();
                 } else {
-                    // 如果任何地方都未找到顯示名稱，提示用戶輸入
-                    console.log("handleUserAuthenticationAndDataLoad: 未找到顯示名稱，顯示使用者暱稱輸入模態框。");
+                    // If display name not found anywhere, prompt user for input
+                    console.log("handleUserAuthenticationAndDataLoad: Display name not found, showing user nickname input modal.");
                     userIdModalOverlay.style.display = 'flex';
                     userIdInput.focus();
-                    hideGlobalLoading(); // 隱藏載入中 (因為要顯示另一個模態框)
-                    // 不在此處呼叫 proceedAfterUserIdSet()，它將在用戶提交 ID 後呼叫
+                    hideGlobalLoading(); // Hide loading indicator (because another modal will be shown)
+                    // Do not call proceedAfterUserIdSet() here, it will be called after user submits ID
                 }
             }
         }
 
         /**
-         * 在設定使用者 ID 後繼續執行應用程式流程。
+         * Continues the application flow after the user ID is set.
          */
         async function proceedAfterUserIdSet() {
-            console.log("proceedAfterUserIdSet: 繼續執行，currentUserId:", currentUserId);
+            console.log("proceedAfterUserIdSet: Continuing execution, currentUserId:", currentUserId);
             if (currentUserId) {
                 console.log("proceedAfterUserIdSet: db:", db, "effectiveAppId:", effectiveAppId);
-                await trackUserVisit(effectiveAppId); // 追蹤用戶訪問
+                await trackUserVisit(effectiveAppId); // Track user visit
                 environmentSelectionScreen.style.display = 'none';
                 initialSelectionScreen.style.display = 'flex';
-                subjectSelectionArea.style.display = 'block'; // 始終顯示科目選擇
-                getQuestionCounts(); // 顯示題目數量
-                viewLeaderboardButton.style.display = 'block'; // 在初始畫面顯示排行榜按鈕
-                await checkAndDisplaySavedProgress(); // 檢查是否有儲存的進度
+                subjectSelectionArea.style.display = 'block'; // Always show subject selection
+                getQuestionCounts(); // Display question counts
+                viewLeaderboardButton.style.display = 'block'; // Show leaderboard button on initial screen
+                await checkAndDisplaySavedProgress(); // Check for saved progress
             } else {
-                console.error("proceedAfterUserIdSet: 無法設定 currentUserId。");
+                console.error("proceedAfterUserIdSet: Unable to set currentUserId.");
                 showConfirmationModal('錯誤', '無法設定使用者 ID，請重新整理頁面或稍後再試。', null, true);
             }
         }
 
-        // 環境選擇按鈕點擊事件監聽器
+        // Environment selection button click event listeners
         selectCanvasEnvButton.addEventListener('click', async () => {
             currentEnvironment = 'canvas';
-            userCountDisplay.style.display = 'block'; // 確保在環境選擇畫面顯示用戶計數
+            userCountDisplay.style.display = 'block'; // Ensure user count is displayed on environment selection screen
             await handleUserAuthenticationAndDataLoad();
         });
 
         selectGithubEnvButton.addEventListener('click', async () => {
             currentEnvironment = 'github-pages';
-            userCountDisplay.style.display = 'block'; // 確保在環境選擇畫面顯示用戶計數
+            userCountDisplay.style.display = 'block'; // Ensure user count is displayed on environment selection screen
             await handleUserAuthenticationAndDataLoad();
         });
 
-        // 使用者 ID 輸入模態框的確認按鈕點擊事件監聽器
+        // User ID input modal confirm button click event listener
         submitUserIdButton.addEventListener('click', async () => {
             let enteredDisplayName = userIdInput.value.trim();
-            // 如果沒有輸入暱稱，則給予預設稱呼
+            // If no nickname is entered, assign a default name
             if (!enteredDisplayName) {
-                enteredDisplayName = '陌生人'; // 您可以根據需求修改為其他預設名稱
+                enteredDisplayName = '陌生人'; // You can change this to another default name as needed
             }
             
-            showGlobalLoading(); // 顯示載入中
+            showGlobalLoading(); // Show loading indicator
             currentUserDisplayName = enteredDisplayName;
-            localStorage.setItem('user_defined_display_name', enteredDisplayName); // 儲存到 localStorage
-            userIdModalOverlay.style.display = 'none'; // 隱藏模態框
+            localStorage.setItem('user_defined_display_name', enteredDisplayName); // Save to localStorage
+            userIdModalOverlay.style.display = 'none'; // Hide modal
             console.log("User display name set and stored:", currentUserDisplayName);
-            // 立即儲存到 Firestore 個人資料中
+            // Immediately save to Firestore profile
             await saveUserDisplayNameToFirestore(currentUserId, currentUserDisplayName);
-            await proceedAfterUserIdSet(); // 繼續處理認證和資料載入
-            hideGlobalLoading(); // 隱藏載入中
+            await proceedAfterUserIdSet(); // Continue with authentication and data loading
+            hideGlobalLoading(); // Hide loading indicator
         });
 
-        // 使用者 ID 輸入模態框的取消按鈕點擊事件監聽器
+        // User ID input modal cancel button click event listener
         cancelUserIdButton.addEventListener('click', () => {
-            userIdModalOverlay.style.display = 'none'; // 隱藏模態框
-            // 如果使用者取消，則回到環境選擇畫面
+            userIdModalOverlay.style.display = 'none'; // Hide modal
+            // If user cancels, return to environment selection screen
             environmentSelectionScreen.style.display = 'flex';
             initialSelectionScreen.style.display = 'none';
             userCountDisplay.style.display = 'block';
-            getAndDisplayUserCount(); // 返回環境選擇畫面時更新用戶計數
+            getAndDisplayUserCount(); // Update user count when returning to environment selection screen
         });
 
         /**
-         * 將測驗分數儲存到排行榜。
-         * @param {number} finalScorePoints - 計算後的總分數。
+         * Saves quiz score to the leaderboard.
+         * @param {number} finalScorePoints - The calculated total score.
          */
         async function saveQuizScoreToLeaderboard(finalScorePoints) {
             if (!db || !currentUserId || !effectiveAppId) {
-                console.warn("無法儲存排行榜分數：Firebase 未初始化或必要參數缺失。");
+                console.warn("Cannot save leaderboard score: Firebase not initialized or required parameters missing.");
                 return;
             }
 
-            // 排行榜資料儲存在公共路徑：/artifacts/{appId}/public/data/leaderboard_scores
+            // Leaderboard data is stored in public path: /artifacts/{appId}/public/data/leaderboard_scores
             const leaderboardCollectionRef = collection(db, 'artifacts', effectiveAppId, 'public', 'data', 'leaderboard_scores');
             console.log("Firestore collection path for leaderboard write:", leaderboardCollectionRef.path);
             
@@ -2649,37 +2665,37 @@ D) ${currentQuestionData.options[3]}
                 const scoreData = {
                     userId: currentUserId,
                     displayName: currentUserDisplayName || '匿名用戶',
-                    score: finalScorePoints, // 儲存計算後的總分數
-                    totalQuestions: selectedQuizData.length, // 仍然儲存總題數，以備需要
-                    correctAnswers: score, // 新增答對題數，以備需要
+                    score: finalScorePoints, // Save the calculated total score
+                    totalQuestions: selectedQuizData.length, // Still save total questions, if needed
+                    correctAnswers: score, // Add correct answer count, if needed
                     subject: subjectNames[subjectSelect.value],
                     timestamp: serverTimestamp()
                 };
 
-                // 添加一個新文件，ID 由 Firestore 自動生成
+                // Add a new document, ID automatically generated by Firestore
                 await addDoc(leaderboardCollectionRef, scoreData);
-                console.log("測驗分數已儲存到排行榜。");
+                console.log("Quiz score saved to leaderboard.");
             } catch (error) {
-                console.error("儲存測驗分數到排行榜失敗:", error);
+                console.error("Failed to save quiz score to leaderboard:", error);
                 if (error.code === 'permission-denied') {
-                    console.error("錯誤提示: Firebase 權限不足。請檢查您的 Firestore 安全規則，確保允許使用者在路徑 `/artifacts/{appId}/public/data/leaderboard_scores` 上進行寫入操作。");
+                    console.error("Error: Firebase permission denied. Please check your Firestore security rules to ensure users can write on path `/artifacts/{appId}/public/data/leaderboard_scores`.");
                 }
             }
         }
 
         /**
-         * 從 Firestore 獲取並顯示排行榜分數。
+         * Fetches and displays leaderboard scores from Firestore.
          */
         async function fetchLeaderboardScores() {
-            showGlobalLoading(); // 顯示載入中
-            console.log("fetchLeaderboardScores: 開始獲取排行榜分數...");
-            console.log("fetchLeaderboardScores: db 實例:", db);
+            showGlobalLoading(); // Show loading indicator
+            console.log("fetchLeaderboardScores: Starting to fetch leaderboard scores...");
+            console.log("fetchLeaderboardScores: db instance:", db);
             console.log("fetchLeaderboardScores: effectiveAppId:", effectiveAppId);
 
             if (!db || !effectiveAppId) {
-                console.error("fetchLeaderboardScores: Firestore 未初始化或 App ID 無效，無法獲取排行榜分數。");
+                console.error("fetchLeaderboardScores: Firestore not initialized or App ID invalid, cannot fetch leaderboard scores.");
                 leaderboardList.innerHTML = '<li>無法載入排行榜 (初始化中)。</li>';
-                hideGlobalLoading(); // 隱藏載入中
+                hideGlobalLoading(); // Hide loading indicator
                 return;
             }
 
@@ -2687,16 +2703,16 @@ D) ${currentQuestionData.options[3]}
             console.log("fetchLeaderboardScores: leaderboardCollectionRef path:", leaderboardCollectionRef.path);
             
             try {
-                // 查詢排行榜分數，按分數降序排列，分數相同則按時間升序排列，限制前 100 名
+                // Query leaderboard scores, ordered by score descending, then by timestamp ascending, limit to top 100
                 const q = query(leaderboardCollectionRef, orderBy('score', 'desc'), orderBy('timestamp', 'asc'), limit(100));
-                console.log("fetchLeaderboardScores: 準備執行 getDocs 查詢...");
+                console.log("fetchLeaderboardScores: Preparing to execute getDocs query...");
                 const querySnapshot = await getDocs(q);
-                console.log("fetchLeaderboardScores: getDocs 查詢已完成。");
+                console.log("fetchLeaderboardScores: getDocs query completed.");
 
-                leaderboardList.innerHTML = ''; // 清空之前的列表
+                leaderboardList.innerHTML = ''; // Clear previous list
                 if (querySnapshot.empty) {
                     leaderboardList.innerHTML = '<li>目前沒有排行榜資料。</li>';
-                    console.log("fetchLeaderboardScores: 排行榜為空。");
+                    console.log("fetchLeaderboardScores: Leaderboard is empty.");
                     return;
                 }
 
@@ -2704,13 +2720,13 @@ D) ${currentQuestionData.options[3]}
                 querySnapshot.forEach(doc => {
                     const data = doc.data();
                     const listItem = document.createElement('li');
-                    const timestampDate = data.timestamp ? data.timestamp.toDate() : new Date(); // 將時間戳轉換為 Date 物件
+                    const timestampDate = data.timestamp ? data.timestamp.toDate() : new Date(); // Convert timestamp to Date object
                     const formattedDate = timestampDate.toLocaleString('zh-TW', {
                         year: 'numeric', month: 'numeric', day: 'numeric',
                         hour: '2-digit', minute: '2-digit'
                     });
 
-                    // 這裡顯示的是從 Firestore 讀取到的 'score' 欄位，現在它應該是計算後的總分
+                    // Display the 'score' field read from Firestore, which should now be the calculated total score
                     listItem.innerHTML = `
                         <span class="leaderboard-rank">${rank}.</span>
                         <span class="leaderboard-name">${data.displayName} (${data.subject})</span>
@@ -2720,26 +2736,26 @@ D) ${currentQuestionData.options[3]}
                     leaderboardList.appendChild(listItem);
                     rank++;
                 });
-                console.log("fetchLeaderboardScores: 排行榜資料已顯示。");
+                console.log("fetchLeaderboardScores: Leaderboard data displayed.");
             } catch (error) {
-                console.error("fetchLeaderboardScores: 獲取排行榜分數失敗:", error);
+                console.error("fetchLeaderboardScores: Failed to fetch leaderboard scores:", error);
                 leaderboardList.innerHTML = '<li>載入排行榜失敗 (錯誤)。</li>';
                 if (error.code === 'permission-denied') {
-                    console.error("錯誤提示: Firebase 權限不足。請檢查您的 Firestore 安全規則，確保允許讀取 `/artifacts/{appId}/public/data/leaderboard_scores`。");
+                    console.error("Error: Firebase permission denied. Please check your Firestore security rules to ensure read access to `/artifacts/{appId}/public/data/leaderboard_scores`.");
                 }
             } finally {
-                hideGlobalLoading(); // 無論成功或失敗，都隱藏載入中
+                hideGlobalLoading(); // Hide loading regardless of success or failure
             }
         }
 
         /**
-         * 分享測驗結果。
+         * Shares quiz results.
          */
         async function shareQuizResults() {
             const quizTitle = "iPAS初級AI應用規劃師模擬測驗";
             const subjectName = subjectNames[subjectSelect.value];
-            const finalScorePoints = score * POINTS_PER_QUESTION; // 計算最終分數
-            const finalScoreDisplay = `${finalScorePoints} 分`; // 顯示分數
+            const finalScorePoints = score * POINTS_PER_QUESTION; // Calculate final score
+            const finalScoreDisplay = `${finalScorePoints} 分`; // Display score
             const message = summaryMessageElement.textContent;
             const userName = currentUserDisplayName || '匿名用戶';
 
@@ -2755,7 +2771,7 @@ D) ${currentQuestionData.options[3]}
 
             try {
                 if (navigator.share) {
-                    // 如果瀏覽器支援 Web Share API，則使用它
+                    // If browser supports Web Share API, use it
                     await navigator.share({
                         title: quizTitle,
                         text: shareText,
@@ -2763,7 +2779,7 @@ D) ${currentQuestionData.options[3]}
                     });
                     showConfirmationModal('分享成功', '測驗結果已成功分享！', null, true);
                 } else {
-                    // 否則，回退到複製到剪貼簿
+                    // Otherwise, fall back to copying to clipboard
                     const tempInput = document.createElement('textarea');
                     tempInput.value = shareText;
                     document.body.appendChild(tempInput);
@@ -2773,8 +2789,8 @@ D) ${currentQuestionData.options[3]}
                     showConfirmationModal('複製成功', '測驗結果已複製到剪貼簿！您可以貼到任何地方。', null, true);
                 }
             } catch (error) {
-                console.error('分享失敗:', error);
-                // 檢查錯誤是否為用戶取消分享
+                console.error('Share failed:', error);
+                // Check if error is user cancelling share
                 if (error.name !== 'AbortError') {
                     showConfirmationModal('分享失敗', '無法分享測驗結果。您的瀏覽器可能不支援分享功能，或發生其他錯誤。結果已嘗試複製到剪貼簿。', null, true);
                 } else {
@@ -2783,9 +2799,9 @@ D) ${currentQuestionData.options[3]}
             }
         }
 
-        // 頁面載入時執行初始化邏輯
+        // Page load initialization logic
         document.addEventListener('DOMContentLoaded', async () => {
-            showGlobalLoading(); // 在 DOMContentLoaded 時顯示載入中
+            showGlobalLoading(); // Show loading indicator on DOMContentLoaded
             environmentSelectionScreen.style.display = 'flex';
             initialSelectionScreen.style.display = 'none';
             quizContent.style.display = 'none';
@@ -2794,37 +2810,81 @@ D) ${currentQuestionData.options[3]}
             userIdModalOverlay.style.display = 'none';
             leaderboardModalOverlay.style.display = 'none';
             
-            // 初始化 Firebase 服務
+            // Initialize Firebase services
             await initializeFirebaseServices();
-            // 立即獲取並顯示訪問人數
+            // Immediately fetch and display visitor count
             await getAndDisplayUserCount();
-            hideGlobalLoading(); // 在 DOMContentLoaded 完成後隱藏載入中
+            hideGlobalLoading(); // Hide loading indicator after DOMContentLoaded completes
 
-            // 為分享結果按鈕添加事件監聽器 (確保在 DOMContentLoaded 後執行)
+            // Add event listener for share results button (ensure executed after DOMContentLoaded)
             shareResultsButton.addEventListener('click', shareQuizResults);
 
-            // 為排行榜按鈕添加事件監聽器
+            // Add event listener for leaderboard button
             viewLeaderboardButton.addEventListener('click', async () => {
-                leaderboardModalOverlay.style.display = 'flex'; // 顯示排行榜模態框
-                await fetchLeaderboardScores(); // 載入並顯示排行榜分數
+                leaderboardModalOverlay.style.display = 'flex'; // Show leaderboard modal
+                await fetchLeaderboardScores(); // Load and display leaderboard scores
             });
             viewLeaderboardButtonSummary.addEventListener('click', async () => {
-                leaderboardModalOverlay.style.display = 'flex'; // 顯示排行榜模態框
-                await fetchLeaderboardScores(); // 載入並顯示排行榜分數
+                leaderboardModalOverlay.style.display = 'flex'; // Show leaderboard modal
+                await fetchLeaderboardScores(); // Load and display leaderboard scores
             });
 
-            // 為排行榜模態框的關閉按鈕添加事件監聽器
+            // Add event listener for leaderboard modal close button
             leaderboardModalClose.addEventListener('click', () => {
-                leaderboardModalOverlay.style.display = 'none'; // 隱藏排行榜模態框
+                leaderboardModalOverlay.style.display = 'none'; // Hide leaderboard modal
             });
 
+            // Add visibilitychange listener for precise timer
+            document.addEventListener('visibilitychange', async () => {
+                if (quizContent.style.display === 'block' && currentUserId && selectedQuizData.length > 0) {
+                    if (document.hidden) {
+                        // Page is hidden, stop timer and save progress
+                        stopTimer();
+                        lastActiveTime = Date.now(); // Update last active time
+                        await saveQuizProgress(subjectSelect.value);
+                        console.log("Page hidden. Timer paused, progress saved.");
+                    } else {
+                        // Page is visible, load progress and resume timer
+                        console.log("Page visible. Loading progress and resuming timer.");
+                        const currentSubjectId = subjectSelect.value;
+                        loadedProgressData = await loadQuizProgress(currentSubjectId);
+                        if (loadedProgressData) {
+                            // Calculate time elapsed while hidden
+                            const hiddenTimeElapsedMs = Date.now() - (loadedProgressData.lastActiveTime || loadedProgressData.quizStartTime);
+                            const hiddenTimeElapsedSeconds = Math.floor(hiddenTimeElapsedMs / 1000);
+                            
+                            // Subtract elapsed time from remaining time
+                            timeRemaining = (loadedProgressData.timeRemaining ?? quizDurationInSeconds) - hiddenTimeElapsedSeconds;
+                            if (timeRemaining < 0) timeRemaining = 0; // Ensure time doesn't go negative
 
-            // 添加 beforeunload 監聽器以在頁面關閉前保存進度
+                            currentQuestionIndex = loadedProgressData.currentQuestionIndex ?? 0;
+                            userAnswers = loadedProgressData.userAnswers || [];
+                            score = loadedProgressData.score ?? 0;
+                            incorrectQuestions = loadedProgressData.incorrectQuestions || [];
+                            selectedQuizData = loadedProgressData.selectedQuizData || [];
+                            quizStartTime = loadedProgressData.quizStartTime ?? Date.now();
+
+                            loadQuestion(); // Reload current question to reflect state
+                            startTimer(); // Resume timer
+                            console.log(`Timer resumed. Hidden for ${hiddenTimeElapsedSeconds} seconds. Time remaining: ${formatTime(timeRemaining)}`);
+                        } else {
+                            // If no progress found (e.g., first load or cleared), just restart timer if quiz is active
+                            startTimer();
+                            console.log("No saved progress to load, just resuming timer.");
+                        }
+                    }
+                }
+            });
+
+            // Add beforeunload listener to save progress before page closes
             window.addEventListener('beforeunload', async () => {
                 if (quizContent.style.display === 'block' && currentUserId && selectedQuizData.length > 0) {
-                    // 只有在測驗活躍且用戶至少回答了一個問題時才保存
+                    // Only save if quiz is active and user has answered at least one question
                     if (userAnswers.length > 0) {
+                        // Before unloading, ensure lastActiveTime is updated to the current moment
+                        lastActiveTime = Date.now(); 
                         await saveQuizProgress(subjectSelect.value); 
+                        console.log("Page unloading. Progress saved.");
                     }
                 }
             });
