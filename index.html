@@ -1067,128 +1067,92 @@
             cursor: default;
             box-shadow: 0 4px 10px rgba(43, 108, 176, 0.4);
         }
-        /* 響應式設計調整 */
-        @media (max-width: 640px) {
-            .quiz-container {
-                padding: 20px;
-            }
-            .question-text {
-                font-size: 1.2rem;
-            }
-            .option-button {
-                font-size: 1rem;
-                padding: 12px 15px;
-            }
-            .nav-button {
-                padding: 10px 20px;
-                font-size: 1rem;
-            }
-            .summary-title {
-                font-size: 1.5rem;
-            }
-            .summary-score {
-                font-size: 2rem;
-            }
-            .summary-message {
-                font-size: 1.1rem;
-            }
-            .restart-button {
-                padding: 12px 25px;
-                font-size: 1.1rem;
-            }
-            .gemini-modal-content {
-                padding: 20px;
-            }
-            .gemini-modal-title {
-                font-size: 1.2rem;
-            }
-            .gemini-modal-input-area textarea {
-                min-height: 60px;
-            }
-            .api-key-modal-content {
-                padding: 20px;
-            }
-            .api-key-modal-title {
-                font-size: 1.2rem;
-            }
-            .timer-display {
-                font-size: 1rem;
-                padding: 6px 12px;
-            }
-            .confirmation-modal-content {
-                padding: 20px;
-            }
-            .confirmation-modal-title {
-                font-size: 1.2rem;
-            }
-            .confirmation-modal-message {
-                font-size: 1rem;
-            }
-            .confirmation-modal-button {
-                padding: 8px 15px;
-                font-size: 1rem;
-            }
-            .env-button {
-                padding: 12px 25px;
-                font-size: 1.1rem;
-            }
-            #user-id-modal-content {
-                padding: 20px;
-            }
-            #user-id-modal-title {
-                font-size: 1.2rem;
-            }
-            #leaderboard-modal-content {
-                padding: 20px;
-            }
-            #leaderboard-title {
-                font-size: 1.5rem;
-            }
-            #leaderboard-list li {
-                font-size: 1rem;
-                padding: 10px 15px;
-            }
-            .view-leaderboard-button {
-                padding: 10px 20px;
-                font-size: 1rem;
-            }
-            .share-results-button {
-                padding: 12px 25px;
-                font-size: 1.1rem;
-            }
-        }
-        /* 全域載入覆蓋層樣式 */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            z-index: 9999; /* 確保在所有元素之上 */
-            color: white;
-            font-size: 2rem;
-            text-align: center;
-        }
-        /* 載入中旋轉圖示樣式 */
-        .spinner {
-            border: 8px solid rgba(255, 255, 255, 0.3);
-            border-top: 8px solid #fff;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-        /* 旋轉動畫關鍵幀 */
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+		/* 歷史紀錄圖卡 */
+        .leaderboard-modal-content {
+		  background-color: white;
+		  padding: 24px;
+		  border-radius: 12px;
+		  width: 600px;
+		  max-height: 80vh;
+		  overflow-y: auto;
+		  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+		  position: relative;
+		  z-index: 100; /* 確保在遮罩上層 */
+		}
+		.gemini-modal-close {
+		  position: absolute;
+		  top: 16px;
+		  right: 20px;
+		  font-size: 24px;
+		  font-weight: bold;
+		  color: #666;
+		  cursor: pointer;
+		  transition: color 0.2s ease;
+		}
+
+		.gemini-modal-close:hover {
+		  color: #000;
+		}
+
+		/* 歷史紀錄按鈕 */
+		.view-history-button {
+			background-color: #805ad5;
+			color: white;
+			padding: 12px 25px;
+			border-radius: 10px;
+			font-size: 1.1rem;
+			font-weight: 600;
+			cursor: pointer;
+			transition: background-color 0.3s ease, transform 0.2s ease;
+			border: none;
+			box-shadow: 0 4px 10px rgba(128, 90, 213, 0.3);
+			margin-top: 20px;
+			letter-spacing: 0.5px;
+		}
+		.view-history-button:hover {
+			background-color: #6b46c1;
+			transform: translateY(-2px);
+		}
+		.view-history-button:focus {
+			outline: 2px solid #c4b5fd;
+			outline-offset: 2px;
+		}
+
+		/* 遮罩層 */
+		.loading-overlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background-color: rgba(0, 0, 0, 0.6);
+			backdrop-filter: blur(2px);
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			flex-direction: column;
+			z-index: 9999;
+			color: white;
+			font-size: 1.5rem;
+			text-align: center;
+		}
+
+		/* Loading Spinner */
+		.spinner {
+			border: 8px solid rgba(255, 255, 255, 0.2);
+			border-top: 8px solid #ffffff;
+			border-radius: 50%;
+			width: 60px;
+			height: 60px;
+			animation: spin 1.2s linear infinite;
+			margin-bottom: 20px;
+		}
+
+		@keyframes spin {
+			0%   { transform: rotate(0deg); }
+			100% { transform: rotate(360deg); }
+		}
+
     </style>
 </head>
 <body>
@@ -1249,6 +1213,7 @@
                     </div>
                 </div>
                 <button id="view-leaderboard-button" class="view-leaderboard-button">查看排行榜</button> <!-- 排行榜按鈕 -->
+                <button id="view-history-button" class="view-history-button">查看歷史紀錄</button> <!-- 新增：查看歷史紀錄按鈕 -->
             </div>
 
             <!-- 測驗內容區塊 (預設隱藏) -->
@@ -1362,6 +1327,29 @@
             <ul id="leaderboard-list">
                 <!-- 排行榜條目將在此載入 -->
             </ul>
+        </div>
+    </div>
+
+    <!-- 測驗歷史紀錄模態框 (新增) -->
+    <div id="quiz-history-modal-overlay" class="leaderboard-modal-overlay fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div id="quiz-history-modal-content" class="leaderboard-modal-content">
+            <span class="gemini-modal-close" id="quiz-history-modal-close">&times;</span>
+            <div id="quiz-history-title" class="leaderboard-title">測驗歷史紀錄</div>
+            <ul id="quiz-history-list" class="leaderboard-list">
+                <!-- 歷史紀錄條目將在此載入 -->
+            </ul>
+            <button id="view-incorrect-stats-button" class="view-leaderboard-button mt-4">查看錯題統計</button>
+        </div>
+    </div>
+
+    <!-- 歷史紀錄詳情/錯題統計模態框 (新增，共用 Gemini modal 的樣式) -->
+    <div id="quiz-history-detail-modal-overlay" class="gemini-modal-overlay" style="display: none;">
+        <div class="gemini-modal-content">
+            <span class="gemini-modal-close" id="quiz-history-detail-modal-close">&times;</span>
+            <div class="gemini-modal-title" id="quiz-history-detail-title">測驗詳情</div>
+            <div id="quiz-history-detail-content" class="gemini-modal-response" style="display: block; max-height: 500px; overflow-y: auto;">
+                <!-- 測驗詳情或錯題統計將在此載入 -->
+            </div>
         </div>
     </div>
 
@@ -1482,6 +1470,17 @@
         const leaderboardModalOverlay = document.getElementById('leaderboard-modal-overlay');
         const leaderboardModalClose = document.getElementById('leaderboard-modal-close');
         const leaderboardList = document.getElementById('leaderboard-list');
+
+        // New: History related DOM elements
+        const viewHistoryButton = document.getElementById('view-history-button');
+        const quizHistoryModalOverlay = document.getElementById('quiz-history-modal-overlay');
+        const quizHistoryModalClose = document.getElementById('quiz-history-modal-close');
+        const quizHistoryList = document.getElementById('quiz-history-list');
+        const quizHistoryDetailModalOverlay = document.getElementById('quiz-history-detail-modal-overlay');
+        const quizHistoryDetailModalClose = document.getElementById('quiz-history-detail-modal-close');
+        const quizHistoryDetailTitle = document.getElementById('quiz-history-detail-title');
+        const quizHistoryDetailContent = document.getElementById('quiz-history-detail-content');
+        const viewIncorrectStatsButton = document.getElementById('view-incorrect-stats-button');
 
         // Share results button DOM element
         const shareResultsButton = document.getElementById('share-results-button');
@@ -2096,6 +2095,8 @@
 
             // Save score to leaderboard
             await saveQuizScoreToLeaderboard(finalScorePoints); // Pass the calculated total score
+            // Save quiz history
+            await saveQuizHistory(subjectSelect.value, finalScorePoints, selectedQuizData, userAnswers, quizMode); // New: Save quiz history
             // Clear progress for the current subject as the quiz is completed
             await clearQuizProgress(subjectSelect.value);
 
@@ -2122,6 +2123,7 @@
             subjectSelectionArea.style.display = 'none';
             modeSelectionArea.style.display = 'none'; // Hide mode selection area
             viewLeaderboardButton.style.display = 'none';
+            viewHistoryButton.style.display = 'none'; // Hide history button
 
             console.log(`loadFullQuizData: Starting load for ${jsonFileName}. Is continuing: ${isContinuing}, Mode: ${quizMode}`);
 
@@ -2175,6 +2177,7 @@
                 userCountDisplay.style.display = 'block'; // Show user count on error
                 continueQuizPrompt.style.display = 'none';
                 viewLeaderboardButton.style.display = 'block';
+                viewHistoryButton.style.display = 'block'; // Show history button on error
                 return;
             } finally {
                 // Only hide loading indicator if data loaded successfully or continuing quiz
@@ -2592,6 +2595,7 @@ D) ${currentQuestionData.options[3]}
                 modeSelectionArea.style.display = 'flex'; // Show mode selection area on Firebase init error
                 getQuestionCounts(); // Still try to display question counts
                 viewLeaderboardButton.style.display = 'block';
+                viewHistoryButton.style.display = 'block'; // Show history button on Firebase init error
                 userCountDisplay.style.display = 'block'; // Ensure user count is visible on this screen
                 userCountDisplay.textContent = '無法載入訪問人數 (初始化錯誤)。'; // Display error message
             }
@@ -2757,6 +2761,7 @@ D) ${currentQuestionData.options[3]}
                 modeSelectionArea.style.display = 'flex'; // Always show mode selection
                 getQuestionCounts(); // Display question counts
                 viewLeaderboardButton.style.display = 'block'; // Show leaderboard button on initial screen
+                viewHistoryButton.style.display = 'block'; // Show history button on initial screen
                 await checkAndDisplaySavedProgress(); // Check for saved progress
                 
                 // Now that we are on the initial selection screen, display user count
@@ -2859,6 +2864,56 @@ D) ${currentQuestionData.options[3]}
         }
 
         /**
+         * Saves quiz history to Firestore.
+         * @param {string} subjectId - The subject ID.
+         * @param {number} finalScore - The final score of the quiz.
+         * @param {Array<Object>} quizQuestions - The array of questions in the quiz.
+         * @param {Array<Object>} answers - The array of user answers.
+         * @param {string} mode - The quiz mode ('practice' or 'exam').
+         */
+        async function saveQuizHistory(subjectId, finalScore, quizQuestions, answers, mode) {
+            if (!isAuthReady || !db || !currentUserId || !effectiveAppId) {
+                console.warn("saveQuizHistory: Firebase auth not ready or parameters missing. Cannot save quiz history.");
+                return;
+            }
+
+            const quizHistoryCollectionRef = collection(db, 'artifacts', effectiveAppId, 'users', currentUserId, 'quiz_history');
+
+            try {
+                const questionsAttempted = quizQuestions.map((q, index) => {
+                    const userAnswer = answers[index];
+                    return {
+                        questionText: q.question,
+                        options: q.options, // Store all options
+                        answer: q.answer, // Store correct answer label (e.g., 'A', 'B')
+                        explanation: q.explanation,
+                        userSelectedOptionContent: userAnswer ? userAnswer.selectedOptionContent : '未作答',
+                        isCorrect: userAnswer ? userAnswer.isCorrect : false
+                    };
+                });
+
+                const historyData = {
+                    subjectId: subjectId,
+                    subjectName: subjectNames[subjectId],
+                    timestamp: serverTimestamp(),
+                    score: finalScore,
+                    totalQuestions: quizQuestions.length,
+                    correctAnswers: answers.filter(a => a && a.isCorrect).length, // Count actual correct answers
+                    quizMode: mode,
+                    questionsAttempted: removeUndefined(questionsAttempted) // Ensure no undefined values
+                };
+
+                await addDoc(quizHistoryCollectionRef, historyData);
+                console.log("Quiz history saved successfully:", historyData);
+            } catch (error) {
+                console.error("Failed to save quiz history:", error);
+                if (error.code === 'permission-denied') {
+                    console.error("Error: Firebase permission denied. Please check your Firestore security rules for quiz_history collection.");
+                }
+            }
+        }
+
+        /**
          * Fetches and displays leaderboard scores from Firestore.
          */
         async function fetchLeaderboardScores() {
@@ -2920,6 +2975,198 @@ D) ${currentQuestionData.options[3]}
                 }
             } finally {
                 hideGlobalLoading(); // Hide loading regardless of success or failure
+            }
+        }
+
+        /**
+         * Fetches and displays quiz history from Firestore.
+         */
+        async function fetchAndDisplayQuizHistory() {
+            showGlobalLoading();
+            quizHistoryList.innerHTML = '<li>載入歷史紀錄中...</li>';
+
+            if (!isAuthReady || !db || !currentUserId || !effectiveAppId) {
+                console.warn("fetchAndDisplayQuizHistory: Firebase auth not ready or parameters missing. Cannot fetch history.");
+                quizHistoryList.innerHTML = '<li>無法載入歷史紀錄 (初始化中)。</li>';
+                hideGlobalLoading();
+                return;
+            }
+
+            const quizHistoryCollectionRef = collection(db, 'artifacts', effectiveAppId, 'users', currentUserId, 'quiz_history');
+            try {
+                // Fetch latest 50 attempts, ordered by timestamp descending
+                const q = query(quizHistoryCollectionRef, orderBy('timestamp', 'desc'), limit(50)); 
+                const querySnapshot = await getDocs(q);
+
+                quizHistoryList.innerHTML = ''; // Clear previous list
+                if (querySnapshot.empty) {
+                    quizHistoryList.innerHTML = '<li>目前沒有測驗歷史紀錄。</li>';
+                    return;
+                }
+
+                querySnapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const listItem = document.createElement('li');
+                    const timestampDate = data.timestamp ? data.timestamp.toDate() : new Date();
+                    const formattedDate = timestampDate.toLocaleString('zh-TW', {
+                        year: 'numeric', month: 'numeric', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+
+                    listItem.innerHTML = `
+                        <span class="leaderboard-name">${data.subjectName} (${data.quizMode === 'practice' ? '練習' : '正式'})</span>
+                        <span class="leaderboard-score">${data.score} 分 (${data.correctAnswers}/${data.totalQuestions} 題)</span>
+                        <span class="text-sm text-gray-500 ml-4">${formattedDate}</span>
+                        <button data-doc-id="${docSnap.id}" class="nav-button ml-4 text-sm px-3 py-1 rounded-md">查看詳情</button>
+                    `;
+                    quizHistoryList.appendChild(listItem);
+
+                    // Add event listener to the "查看詳情" button
+                    listItem.querySelector('button').addEventListener('click', (event) => {
+                        const docId = event.target.dataset.docId;
+                        displayDetailedQuizAttempt(docId);
+                    });
+                });
+
+            } catch (error) {
+                console.error("Failed to fetch quiz history:", error);
+                quizHistoryList.innerHTML = '<li>載入歷史紀錄失敗 (錯誤)。</li>';
+                if (error.code === 'permission-denied') {
+                    console.error("Error: Firebase permission denied. Please check your Firestore security rules for quiz_history collection.");
+                }
+            } finally {
+                hideGlobalLoading();
+            }
+        }
+
+        /**
+         * Displays the detailed view of a specific quiz attempt from history.
+         * @param {string} docId - The document ID of the quiz attempt in Firestore.
+         */
+        async function displayDetailedQuizAttempt(docId) {
+            showGlobalLoading();
+            quizHistoryDetailModalOverlay.style.display = 'flex';
+            quizHistoryDetailContent.innerHTML = '載入詳情中...';
+
+            if (!isAuthReady || !db || !currentUserId || !effectiveAppId) {
+                console.warn("displayDetailedQuizAttempt: Firebase auth not ready or parameters missing. Cannot display detail.");
+                quizHistoryDetailContent.innerHTML = '無法載入詳情 (初始化中)。';
+                hideGlobalLoading();
+                return;
+            }
+
+            const docRef = doc(db, 'artifacts', effectiveAppId, 'users', currentUserId, 'quiz_history', docId);
+            try {
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    quizHistoryDetailTitle.textContent = `${data.subjectName} (${data.quizMode === 'practice' ? '練習' : '正式'}) - ${data.score} 分`;
+                    quizHistoryDetailContent.innerHTML = ''; // Clear previous content
+
+                    if (data.questionsAttempted && data.questionsAttempted.length > 0) {
+                        data.questionsAttempted.forEach((q, index) => {
+                            const itemDiv = document.createElement('div');
+                            itemDiv.className = `question-item ${q.isCorrect ? 'correct' : 'incorrect'} bg-white border rounded-lg p-4 mb-4 shadow-sm`;
+
+                            itemDiv.innerHTML = `
+                                <p class="question-text-all"><strong>${index + 1}. ${q.questionText}</strong></p>
+                                <p class="your-answer-text ${q.isCorrect ? 'text-green-700' : 'text-blue-700'}">您的答案：${q.userSelectedOptionContent}</p>
+                                <p class="correct-answer-text-all text-green-700 mt-2">正確答案：${q.options[optionLabels.indexOf(q.answer)]}</p>
+                                <p class="explanation-text-all text-purple-700 mt-2">${q.explanation}</p>
+                            `;
+                            quizHistoryDetailContent.appendChild(itemDiv);
+                        });
+                    } else {
+                        quizHistoryDetailContent.innerHTML = '<p>此測驗沒有詳細的題目紀錄。</p>';
+                    }
+                } else {
+                    quizHistoryDetailContent.innerHTML = '<p>找不到此測驗紀錄。</p>';
+                }
+            } catch (error) {
+                console.error("Failed to fetch quiz history detail:", error);
+                quizHistoryDetailContent.innerHTML = '載入詳情失敗 (錯誤)。';
+            } finally {
+                hideGlobalLoading();
+            }
+        }
+
+        /**
+         * Generates and displays statistics for incorrectly answered questions across all history.
+         */
+        async function generateAndDisplayIncorrectQuestionStats() {
+            showGlobalLoading();
+            quizHistoryDetailContent.innerHTML = '載入錯題統計中...';
+
+            if (!isAuthReady || !db || !currentUserId || !effectiveAppId) {
+                console.warn("generateAndDisplayIncorrectQuestionStats: Firebase auth not ready or parameters missing. Cannot generate stats.");
+                quizHistoryDetailContent.innerHTML = '無法載入錯題統計 (初始化中)。';
+                hideGlobalLoading();
+                return;
+            }
+
+            const quizHistoryCollectionRef = collection(db, 'artifacts', effectiveAppId, 'users', currentUserId, 'quiz_history');
+            let incorrectQuestionMap = new Map(); // Map to store {questionText: {count: N, questionData: {}}}
+
+            try {
+                const querySnapshot = await getDocs(quizHistoryCollectionRef);
+
+                querySnapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    if (data.questionsAttempted && data.questionsAttempted.length > 0) {
+                        data.questionsAttempted.forEach(q => {
+                            if (!q.isCorrect) {
+                                // Use question text as a unique identifier for simplicity in stats
+                                const questionIdentifier = q.questionText; 
+                                if (incorrectQuestionMap.has(questionIdentifier)) {
+                                    const currentStats = incorrectQuestionMap.get(questionIdentifier);
+                                    currentStats.count++;
+                                    // Update with the latest incorrect attempt's answer for display
+                                    currentStats.userSelectedOptionContent = q.userSelectedOptionContent; 
+                                    incorrectQuestionMap.set(questionIdentifier, currentStats);
+                                } else {
+                                    incorrectQuestionMap.set(questionIdentifier, {
+                                        count: 1,
+                                        questionText: q.questionText,
+                                        options: q.options,
+                                        answer: q.answer,
+                                        explanation: q.explanation,
+                                        userSelectedOptionContent: q.userSelectedOptionContent 
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+
+                quizHistoryDetailContent.innerHTML = ''; // Clear loading message
+                quizHistoryDetailTitle.textContent = '錯題統計';
+
+                if (incorrectQuestionMap.size === 0) {
+                    quizHistoryDetailContent.innerHTML = '<p>太棒了！您目前沒有錯題紀錄。</p>';
+                    return;
+                }
+
+                // Sort incorrect questions by count (most incorrect first)
+                const sortedIncorrectQuestions = Array.from(incorrectQuestionMap.values()).sort((a, b) => b.count - a.count);
+
+                sortedIncorrectQuestions.forEach((stats, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = `question-item incorrect bg-white border rounded-lg p-4 mb-4 shadow-sm`;
+
+                    itemDiv.innerHTML = `
+                        <p class="question-text-all"><strong>${index + 1}. ${stats.questionText}</strong> (錯誤次數: ${stats.count})</p>
+                        <p class="your-answer-text text-blue-700">您最近一次的錯誤答案：${stats.userSelectedOptionContent}</p>
+                        <p class="correct-answer-text-all text-green-700 mt-2">正確答案：${stats.options[optionLabels.indexOf(stats.answer)]}</p>
+                        <p class="explanation-text-all text-purple-700 mt-2">${stats.explanation}</p>
+                    `;
+                    quizHistoryDetailContent.appendChild(itemDiv);
+                });
+
+            } catch (error) {
+                console.error("Failed to generate incorrect question stats:", error);
+                quizHistoryDetailContent.innerHTML = '載入錯題統計失敗 (錯誤)。';
+            } finally {
+                hideGlobalLoading();
             }
         }
 
@@ -2988,6 +3235,8 @@ D) ${currentQuestionData.options[3]}
             timerDisplay.style.display = 'none';
             userIdModalOverlay.style.display = 'none';
             leaderboardModalOverlay.style.display = 'none';
+            quizHistoryModalOverlay.style.display = 'none'; // Hide history modal
+            quizHistoryDetailModalOverlay.style.display = 'none'; // Hide history detail modal
             
             // Initially hide user count display as it's now on a different screen
             userCountDisplay.style.display = 'none'; 
@@ -3016,6 +3265,31 @@ D) ${currentQuestionData.options[3]}
             leaderboardModalClose.addEventListener('click', () => {
                 leaderboardModalOverlay.style.display = 'none'; // Hide leaderboard modal
             });
+
+            // New: Add event listener for history button
+            viewHistoryButton.addEventListener('click', async () => {
+                quizHistoryModalOverlay.style.display = 'flex'; // Show history modal
+                await fetchAndDisplayQuizHistory(); // Load and display history records
+            });
+
+            // New: Add event listener for history modal close button
+            quizHistoryModalClose.addEventListener('click', () => {
+                quizHistoryModalOverlay.style.display = 'none'; // Hide history modal
+            });
+
+            // New: Add event listener for history detail modal close button
+            quizHistoryDetailModalClose.addEventListener('click', () => {
+                quizHistoryDetailModalOverlay.style.display = 'none'; // Hide history detail modal
+            });
+
+            // New: Add event listener for view incorrect stats button
+            viewIncorrectStatsButton.addEventListener('click', async () => {
+                quizHistoryModalOverlay.style.display = 'none'; // Hide history list
+                quizHistoryDetailModalOverlay.style.display = 'flex'; // Show detail modal
+                quizHistoryDetailTitle.textContent = '錯題統計';
+                await generateAndDisplayIncorrectQuestionStats();
+            });
+
 
             // Add visibilitychange listener for precise timer
             document.addEventListener('visibilitychange', async () => {
