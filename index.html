@@ -546,7 +546,7 @@
             transition: background-color 0.3s ease, transform 0.2s ease;
             border: none;
             box-shadow: 0 4px 10px rgba(128, 90, 213, 0.3);
-            margin-top: 20px;
+            /* margin-top: 20px; */ /* 移除或調整，以便與其他按鈕並排 */
         }
         .ask-gemini-button:hover {
             background-color: #6b46c1;
@@ -661,7 +661,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 1002; /* 高於其他模態框 */
+            z-index: 1006; /* 調整 z-index，確保它在回報問題模態框之上 */
         }
         /* 確認模態框內容樣式 */
         .confirmation-modal-content {
@@ -1153,6 +1153,81 @@
 			100% { transform: rotate(360deg); }
 		}
 
+        /* 新增：回報問題模態框疊加層樣式 */
+        .report-problem-modal-overlay {
+            position: fixed; /* 固定定位，使其浮動在頁面最上層 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); /* 半透明黑色背景 */
+            display: flex; /* 使用 Flexbox 居中內容 */
+            justify-content: center;
+            align-items: center;
+            z-index: 1005; /* 確保它在其他模態框之上 (例如比 gemini-modal-overlay 的 z-index: 1000 更高) */
+        }
+
+        /* 新增：回報問題模態框內容樣式 (可以沿用現有 gemini-modal-content 的部分樣式) */
+        .report-problem-modal-content {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            max-width: 500px; /* 設定最大寬度 */
+            width: 90%; /* 響應式寬度 */
+            position: relative;
+            text-align: left;
+        }
+        /* 新增：回報問題成功訊息區塊 */
+        #reportProblemSuccessMessage {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #d4edda; /* 淺綠色背景 */
+            border: 1px solid #48bb78; /* 綠色邊框 */
+            border-radius: 8px;
+            color: #2f855a; /* 深綠色文字 */
+            text-align: center;
+            display: none; /* 預設隱藏 */
+            font-weight: 600;
+        }
+
+        /* 新增：回報問題選項的樣式 */
+        .report-options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* 選項之間的間距 */
+            margin-bottom: 15px;
+        }
+        .report-option-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: #f7fafc;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .report-option-item:hover {
+            background-color: #edf2f7;
+            border-color: #cbd5e0;
+        }
+        .report-option-item input[type="radio"] {
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        .report-option-item label {
+            flex-grow: 1;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #2d3748;
+        }
+        /* 當 radio 被選中時，給父級 div 加上樣式 */
+        .report-option-item input[type="radio"]:checked + label {
+            font-weight: 600;
+            color: #4299e1; /* 藍色 */
+        }
+
     </style>
 </head>
 <body>
@@ -1228,7 +1303,14 @@
                 <div class="feedback-container" id="feedback-container">
                     <div class="feedback-title" id="feedback-title"></div>
                     <div class="feedback-text" id="feedback-text-content"></div>
-                    <button id="ask-gemini-button" class="ask-gemini-button" style="display: none;">✨ 向 Gemini 提問</button>
+                    <!-- 將兩個按鈕放在一個 flex 容器中，以便並排顯示和控制間距 -->
+                    <div class="flex justify-center items-center mt-4">
+                        <button id="ask-gemini-button" class="ask-gemini-button" style="display: none;">✨ 向 Gemini 提問</button>
+                        <!-- 新增的「回報問題」按鈕，使用 ml-4 增加左側間距 -->
+                        <button id="showReportProblemBtn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded ml-4">
+                            回報問題
+                        </button>
+                    </div>
                 </div>
                 <div class="navigation-buttons">
                     <button id="prev-button" class="nav-button" disabled>上一題</button>
@@ -1331,7 +1413,8 @@
     </div>
 
     <!-- 測驗歷史紀錄模態框 (新增) -->
-    <div id="quiz-history-modal-overlay" class="leaderboard-modal-overlay fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+    <!-- 已修正：加上 style="display: none;" 確保初始隱藏，並移除多餘的 flex 類別 -->
+    <div id="quiz-history-modal-overlay" class="leaderboard-modal-overlay fixed inset-0 bg-black bg-opacity-50 z-50" style="display: none;">
         <div id="quiz-history-modal-content" class="leaderboard-modal-content">
             <span class="gemini-modal-close" id="quiz-history-modal-close">&times;</span>
             <div id="quiz-history-title" class="leaderboard-title">測驗歷史紀錄</div>
@@ -1343,6 +1426,7 @@
     </div>
 
     <!-- 歷史紀錄詳情/錯題統計模態框 (新增，共用 Gemini modal 的樣式) -->
+    <!-- 已修正：加上 style="display: none;" 確保初始隱藏 -->
     <div id="quiz-history-detail-modal-overlay" class="gemini-modal-overlay" style="display: none;">
         <div class="gemini-modal-content">
             <span class="gemini-modal-close" id="quiz-history-detail-modal-close">&times;</span>
@@ -1350,6 +1434,68 @@
             <div id="quiz-history-detail-content" class="gemini-modal-response" style="display: block; max-height: 500px; overflow-y: auto;">
                 <!-- 測驗詳情或錯題統計將在此載入 -->
             </div>
+        </div>
+    </div>
+
+    <!-- 新增：回報問題模態框疊加層 (獨立於其他模態框) -->
+    <div id="reportProblemModalOverlay" class="report-problem-modal-overlay" style="display: none;">
+        <div id="reportProblemBox" class="report-problem-modal-content">
+            <span class="gemini-modal-close" id="reportProblemModalClose">&times;</span> <!-- 關閉按鈕 -->
+            <h3 class="text-lg font-semibold mb-3">回報問題</h3>
+            <!-- 新增：顯示當前問題編號和文本 -->
+            <p class="text-gray-700 text-sm mb-4">
+                您正在回報的問題：<span id="reportedQuestionNumber"></span>. <span id="reportedQuestionText" class="font-medium"></span>
+            </p>
+            <!-- 替換 textarea 為 radio 選項 -->
+            <div class="report-options-container">
+                <div class="report-option-item">
+                    <input type="radio" id="reportType1" name="reportType" value="題目有誤" class="form-radio text-blue-600">
+                    <label for="reportType1">題目有誤</label>
+                </div>
+                <div class="report-option-item">
+                    <input type="radio" id="reportType2" name="reportType" value="選項有誤" class="form-radio text-blue-600">
+                    <label for="reportType2">選項有誤</label>
+                </div>
+                <div class="report-option-item">
+                    <input type="radio" id="reportType3" name="reportType" value="正確答案應為A" class="form-radio text-blue-600">
+                    <label for="reportType3">正確答案應為A</label>
+                </div>
+                <div class="report-option-item">
+                    <input type="radio" id="reportType4" name="reportType" value="正確答案應為B" class="form-radio text-blue-600">
+                    <label for="reportType4">正確答案應為B</label>
+                </div>
+                <div class="report-option-item">
+                    <input type="radio" id="reportType5" name="reportType" value="正確答案應為C" class="form-radio text-blue-600">
+                    <label for="reportType5">正確答案應為C</label>
+                </div>
+                <div class="report-option-item">
+                    <input type="radio" id="reportType6" name="reportType" value="正確答案應為D" class="form-radio text-blue-600">
+                    <label for="reportType6">正確答案應為D</label>
+                </div>
+                <div class="report-option-item">
+                    <input type="radio" id="reportType7" name="reportType" value="沒有正確答案" class="form-radio text-blue-600">
+                    <label for="reportType7">沒有正確答案</label>
+                </div>
+                <div class="report-option-item">
+                    <input type="radio" id="reportType8" name="reportType" value="解釋有誤" class="form-radio text-blue-600">
+                    <label for="reportType8">解釋有誤</label>
+                </div>
+                <div class="report-option-item">
+                    <input type="radio" id="reportType9" name="reportType" value="其他問題" class="form-radio text-blue-600">
+                    <label for="reportType9">其他問題</label>
+                </div>
+            </div>
+            <!-- 隱藏的輸入框，用於儲存當前問題的索引 -->
+            <input type="hidden" id="reportedQuestionIndex">
+            <input type="hidden" id="reportedQuestionOriginalText">
+
+            <div id="reportProblemSuccessMessage" style="display: none;">您的問題已成功回報！感謝您的協助。</div> <!-- 新增的成功訊息區塊 -->
+            <button id="submitProblemBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-3">
+                提交問題回報
+            </button>
+            <button id="closeReportBoxBtn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded mt-3 ml-2">
+                取消
+            </button>
         </div>
     </div>
 
@@ -1504,6 +1650,22 @@
             'topic1_ai_intro.json': '科目一：人工智慧基礎概論',
             'topic2_generative_ai_app_planning.json': '科目二：生成式 AI 應用與規劃'
         };
+
+        // 新增：回報問題相關 DOM 元素
+        const showReportProblemBtn = document.getElementById('showReportProblemBtn');
+        const reportProblemModalOverlay = document.getElementById('reportProblemModalOverlay');
+        const reportProblemModalClose = document.getElementById('reportProblemModalClose');
+        // const problemDescription = document.getElementById('problemDescription'); // 移除 textarea
+        const submitProblemBtn = document.getElementById('submitProblemBtn');
+        const closeReportBoxBtn = document.getElementById('closeReportBoxBtn'); // 這個現在是取消按鈕
+        const reportProblemSuccessMessage = document.getElementById('reportProblemSuccessMessage'); // 新增成功訊息元素
+        
+        // 新增：回報問題選項相關 DOM 元素
+        const reportedQuestionNumber = document.getElementById('reportedQuestionNumber');
+        const reportedQuestionText = document.getElementById('reportedQuestionText');
+        const reportedQuestionIndex = document.getElementById('reportedQuestionIndex'); // 隱藏的輸入框，儲存問題索引
+        const reportedQuestionOriginalText = document.getElementById('reportedQuestionOriginalText'); // 隱藏的輸入框，儲存問題原始文本
+
 
         /**
          * Displays the global loading overlay.
@@ -2022,18 +2184,11 @@
 
         // Submit Early button click event listener
         submitEarlyButton.addEventListener('click', () => {
-            confirmationModalOverlay.style.display = 'flex'; // Show confirmation modal
-        });
-
-        // Confirm Submit button click event listener
-        confirmYesButton.addEventListener('click', () => {
-            confirmationModalOverlay.style.display = 'none'; // Hide confirmation modal
-            showQuizSummary(); // Proceed to show quiz summary
-        });
-
-        // Cancel Submit button click event listener
-        confirmNoButton.addEventListener('click', () => {
-            confirmationModalOverlay.style.display = 'none'; // Hide confirmation modal
+            showConfirmationModal('確認交卷', '您確定要提前交卷嗎？交卷後將無法再修改答案。', (confirmed) => {
+                if (confirmed) {
+                    showQuizSummary(); // Proceed to show quiz summary
+                }
+            });
         });
 
         /**
@@ -2593,9 +2748,7 @@ D) ${currentQuestionData.options[3]}
                 continueQuizPrompt.style.display = 'none';
                 subjectSelectionArea.style.display = 'block';
                 modeSelectionArea.style.display = 'flex'; // Show mode selection area on Firebase init error
-                getQuestionCounts(); // Still try to display question counts
-                viewLeaderboardButton.style.display = 'block';
-                viewHistoryButton.style.display = 'block'; // Show history button on Firebase init error
+                questionCountsElement.style.display = 'block';
                 userCountDisplay.style.display = 'block'; // Ensure user count is visible on this screen
                 userCountDisplay.textContent = '無法載入訪問人數 (初始化錯誤)。'; // Display error message
             }
@@ -2930,7 +3083,7 @@ D) ${currentQuestionData.options[3]}
             }
 
             const leaderboardCollectionRef = collection(db, 'artifacts', effectiveAppId, 'public', 'data', 'leaderboard_scores');
-            console.log("fetchLeaderboardScores: leaderboardCollectionRef path:", leaderboardCollectionRef.path);
+            console.log("Firestore collection path for leaderboard write:", leaderboardCollectionRef.path);
             
             try {
                 // Query leaderboard scores, ordered by score descending, then by timestamp ascending, limit to top 100
@@ -2967,7 +3120,8 @@ D) ${currentQuestionData.options[3]}
                     rank++;
                 });
                 console.log("fetchLeaderboardScores: Leaderboard data displayed.");
-            } catch (error) {
+            }
+            catch (error) {
                 console.error("fetchLeaderboardScores: Failed to fetch leaderboard scores:", error);
                 leaderboardList.innerHTML = '<li>載入排行榜失敗 (錯誤)。</li>';
                 if (error.code === 'permission-denied') {
@@ -3237,6 +3391,8 @@ D) ${currentQuestionData.options[3]}
             leaderboardModalOverlay.style.display = 'none';
             quizHistoryModalOverlay.style.display = 'none'; // Hide history modal
             quizHistoryDetailModalOverlay.style.display = 'none'; // Hide history detail modal
+            reportProblemModalOverlay.style.display = 'none'; // 新增：確保回報問題模態框初始隱藏
+            reportProblemSuccessMessage.style.display = 'none'; // 確保成功訊息初始隱藏
             
             // Initially hide user count display as it's now on a different screen
             userCountDisplay.style.display = 'none'; 
@@ -3289,6 +3445,107 @@ D) ${currentQuestionData.options[3]}
                 quizHistoryDetailTitle.textContent = '錯題統計';
                 await generateAndDisplayIncorrectQuestionStats();
             });
+
+
+            // ========== START: 新增的回報問題功能 JavaScript 程式碼 ==========
+            // 顯示回報問題模態框
+            if (showReportProblemBtn) {
+                showReportProblemBtn.addEventListener('click', () => {
+                    if (reportProblemModalOverlay) {
+                        // 清空所有選中的 radio
+                        document.querySelectorAll('input[name="reportType"]').forEach(radio => radio.checked = false);
+                        reportProblemSuccessMessage.style.display = 'none'; // 隱藏成功訊息
+                        
+                        // 顯示當前問題的編號和文本
+                        reportedQuestionNumber.textContent = currentQuestionIndex + 1;
+                        reportedQuestionText.textContent = selectedQuizData[currentQuestionIndex].question;
+                        reportedQuestionIndex.value = currentQuestionIndex; // 儲存問題索引
+                        reportedQuestionOriginalText.value = selectedQuizData[currentQuestionIndex].question; // 儲存問題原始文本
+
+                        // 確保提交和取消按鈕顯示
+                        submitProblemBtn.style.display = 'inline-block';
+                        closeReportBoxBtn.style.display = 'inline-block';
+
+                        reportProblemModalOverlay.style.display = 'flex'; // 顯示模態框疊加層
+                    }
+                });
+            }
+
+            // 關閉回報問題模態框 (透過右上角的 X 按鈕)
+            if (reportProblemModalClose) {
+                reportProblemModalClose.addEventListener('click', () => {
+                    if (reportProblemModalOverlay) {
+                        reportProblemModalOverlay.style.display = 'none'; // 隱藏模態框疊加層
+                        document.querySelectorAll('input[name="reportType"]').forEach(radio => radio.checked = false); // 清空選中
+                        reportProblemSuccessMessage.style.display = 'none'; // 隱藏成功訊息
+                    }
+                });
+            }
+
+            // 關閉回報問題模態框 (透過「取消」按鈕)
+            if (closeReportBoxBtn) { // 這是原來的 closeReportBoxBtn，現在作為取消按鈕
+                closeReportBoxBtn.addEventListener('click', () => {
+                    if (reportProblemModalOverlay) {
+                        reportProblemModalOverlay.style.display = 'none'; // 隱藏模態框疊加層
+                        document.querySelectorAll('input[name="reportType"]').forEach(radio => radio.checked = false); // 清空選中
+                        reportProblemSuccessMessage.style.display = 'none'; // 隱藏成功訊息
+                    }
+                });
+            }
+
+            // 處理提交問題回報到 Firebase
+            if (submitProblemBtn) {
+                submitProblemBtn.addEventListener('click', async () => { // 注意這裡需要 async
+                    const selectedReportType = document.querySelector('input[name="reportType"]:checked');
+
+                    if (!selectedReportType) {
+                        showConfirmationModal("提示", "請選擇一個回報類型！", null, true); // 使用自定義模態框
+                        return;
+                    }
+
+                    const reportType = selectedReportType.value;
+                    const questionIndex = reportedQuestionIndex.value;
+                    const questionText = reportedQuestionOriginalText.value;
+                    const currentQuestionData = selectedQuizData[questionIndex]; // 獲取當前問題的完整數據
+
+                    try {
+                        await addDoc(collection(db, 'reports'), {
+                            reportType: reportType, // 使用選定的回報類型
+                            questionIndex: parseInt(questionIndex) + 1, // 儲存問題編號 (從1開始)
+                            questionText: questionText, // 儲存問題文本
+                            subjectId: subjectSelect.value, // 測驗科目ID
+                            subjectName: subjectNames[subjectSelect.value], // 測驗科目名稱
+                            // 包含問題的選項和正確答案，以便更容易理解回報
+                            questionOptions: currentQuestionData.options,
+                            questionAnswer: currentQuestionData.answer,
+                            timestamp: serverTimestamp(), 
+                            userId: currentUserId || 'anonymous', 
+                            userName: currentUserDisplayName || '匿名用戶',
+                        });
+
+                        // 顯示成功訊息並在短暫延遲後關閉回報視窗
+                        reportProblemSuccessMessage.style.display = 'block'; // 顯示成功訊息
+                        document.querySelectorAll('input[name="reportType"]').forEach(radio => radio.checked = false); // 清空選中
+                        // 隱藏提交和取消按鈕
+                        submitProblemBtn.style.display = 'none';
+                        closeReportBoxBtn.style.display = 'none';
+
+                        setTimeout(() => {
+                            reportProblemModalOverlay.style.display = 'none'; // 隱藏模態框疊加層
+                            reportProblemSuccessMessage.style.display = 'none'; // 隱藏成功訊息
+                            // 恢復按鈕顯示 (如果需要，例如下次打開時)
+                            submitProblemBtn.style.display = 'inline-block';
+                            closeReportBoxBtn.style.display = 'inline-block';
+                        }, 2000); // 2 秒後自動關閉
+
+                    } catch (error) {
+                        console.error("回報問題時發生錯誤:", error);
+                        showConfirmationModal("錯誤", "回報問題時發生錯誤，請稍後再試。", null, true); // 使用自定義模態框
+                        reportProblemSuccessMessage.style.display = 'none'; // 確保錯誤時隱藏成功訊息
+                    }
+                });
+            }
+            // ========== END: 新增的回報問題功能 JavaScript 程式碼 ==========
 
 
             // Add visibilitychange listener for precise timer
