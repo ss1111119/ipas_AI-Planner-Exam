@@ -3106,8 +3106,8 @@ D) ${currentQuestionData.options[3]}
 
             const quizHistoryCollectionRef = collection(db, 'artifacts', effectiveAppId, 'users', currentUserId, 'quiz_history');
             try {
-                // Fetch latest 50 attempts, ordered by timestamp descending
-                const q = query(quizHistoryCollectionRef, orderBy('timestamp', 'desc'), limit(50)); 
+                // Fetch latest 10 attempts, ordered by timestamp descending
+                const q = query(quizHistoryCollectionRef, orderBy('timestamp', 'desc'), limit(10)); 
                 const querySnapshot = await getDocs(q);
 
                 quizHistoryList.innerHTML = ''; // Clear previous list
