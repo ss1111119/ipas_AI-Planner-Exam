@@ -3220,19 +3220,21 @@ D) ${currentQuestionData.options[3]}
             let incorrectQuestionMap = new Map(); // Map to store {questionText: {count: N, questionData: {}}}
 
             try {
-                const querySnapshot = await getDocs(q); // REMOVED orderBy, as it can cause issues without indexes
+                // 修正：將 'q' 替換為 'quizHistoryCollectionRef'，以讀取所有歷史紀錄
+                // 這裡不需要 orderBy 或 limit，因為我們要遍歷所有歷史記錄來統計錯題
+                const querySnapshot = await getDocs(quizHistoryCollectionRef); 
 
                 querySnapshot.forEach(docSnap => {
                     const data = docSnap.data();
                     if (data.questionsAttempted && data.questionsAttempted.length > 0) {
                         data.questionsAttempted.forEach(q => {
                             if (!q.isCorrect) {
-                                // Use question text as a unique identifier for simplicity in stats
+                                // 使用問題文本作為唯一識別符，以便在統計中合併相同的錯題
                                 const questionIdentifier = q.questionText; 
                                 if (incorrectQuestionMap.has(questionIdentifier)) {
                                     const currentStats = incorrectQuestionMap.get(questionIdentifier);
                                     currentStats.count++;
-                                    // Update with the latest incorrect attempt's answer for display
+                                    // 更新為最近一次錯誤嘗試的答案，用於顯示
                                     currentStats.userSelectedOptionContent = q.userSelectedOptionContent; 
                                     incorrectQuestionMap.set(questionIdentifier, currentStats);
                                 } else {
@@ -3250,7 +3252,7 @@ D) ${currentQuestionData.options[3]}
                     }
                 });
 
-                quizHistoryDetailContent.innerHTML = ''; // Clear loading message
+                quizHistoryDetailContent.innerHTML = ''; // 清除載入訊息
                 quizHistoryDetailTitle.textContent = '錯題統計';
 
                 if (incorrectQuestionMap.size === 0) {
@@ -3258,7 +3260,7 @@ D) ${currentQuestionData.options[3]}
                     return;
                 }
 
-                // Sort incorrect questions by count (most incorrect first)
+                // 根據錯誤次數排序錯題 (錯誤次數最多的排在前面)
                 const sortedIncorrectQuestions = Array.from(incorrectQuestionMap.values()).sort((a, b) => b.count - a.count);
 
                 sortedIncorrectQuestions.forEach((stats, index) => {
