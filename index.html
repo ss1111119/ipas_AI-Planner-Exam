@@ -3044,8 +3044,8 @@ D) ${currentQuestionData.options[3]}
             console.log("Firestore collection path for leaderboard write:", leaderboardCollectionRef.path);
             
             try {
-                // Query leaderboard scores, ordered by score descending, then by timestamp ascending, limit to top 100
-                const q = query(leaderboardCollectionRef, orderBy('score', 'desc'), orderBy('timestamp', 'asc'), limit(100));
+                // Query leaderboard scores, ordered by score descending, then by timestamp ascending, limit to top 30
+                const q = query(leaderboardCollectionRef, orderBy('score', 'desc'), orderBy('timestamp', 'asc'), limit(30));
                 console.log("fetchLeaderboardScores: Preparing to execute getDocs query...");
                 const querySnapshot = await getDocs(q);
                 console.log("fetchLeaderboardScores: getDocs query completed.");
