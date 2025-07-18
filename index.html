@@ -1575,7 +1575,7 @@
         let fullQuizData = []; // Stores all questions loaded from JSON
         let selectedQuizData = []; // Stores 50 randomly selected questions
         let currentQuestionIndex = 0;
-        let userAnswers = [];
+        let userAnswers = []; // Stores user's selected answers for each question
         let score = 0; // Stores the number of correct answers
         let incorrectQuestions = []; // Stores incorrectly answered questions
         const optionLabels = ['A', 'B', 'C', 'D']; // Option labels (A, B, C, D)
@@ -1960,24 +1960,29 @@
 
                 const buttons = optionsContainer.querySelectorAll('.option-button');
                 buttons.forEach(button => {
-                    button.classList.add('disabled'); // Disable all options
+                    button.classList.remove('selected', 'correct', 'incorrect', 'disabled'); // 清除所有相關類別
                     if (button.dataset.originalLabelForContent === selectedOriginalLabel) {
-                        button.classList.add('selected');
-                        // In practice mode, show correct/incorrect immediately
-                        if (quizMode === 'practice') {
+                        button.classList.add('selected'); // 標記為已選中
+                    }
+                    
+                    // 只有在練習模式下才顯示正確/錯誤回饋並禁用選項
+                    if (quizMode === 'practice') {
+                        if (button.dataset.originalLabelForContent === selectedOriginalLabel) {
                             if (selectedOriginalLabel === correctOptionLabel) {
                                 button.classList.add('correct');
                             } else {
                                 button.classList.add('incorrect');
                             }
                         }
-                    }
-                    // In practice mode, mark correct answer
-                    if (quizMode === 'practice' && button.dataset.originalLabelForContent === correctOptionLabel) {
-                        button.classList.add('correct');
+                        // 在練習模式下，總是標記正確答案
+                        if (button.dataset.originalLabelForContent === correctOptionLabel) {
+                            button.classList.add('correct');
+                        }
+                        button.classList.add('disabled'); // 禁用所有選項
                     }
                 });
-                // Only show feedback and Gemini button in practice mode
+
+                // 只有在練習模式下才顯示回饋和 Gemini 按鈕
                 if (quizMode === 'practice') {
                     showFeedback(selectedQuizData[currentQuestionIndex].explanation, userAnswers[currentQuestionIndex].isCorrect);
                     askGeminiButton.style.display = 'inline-block'; // Show Gemini button
@@ -1986,8 +1991,12 @@
                     askGeminiButton.style.display = 'none'; // Hide Gemini button in exam mode
                 }
             } else {
+                // 如果沒有答案，則隱藏回饋和 Gemini 按鈕，並確保選項未被禁用
                 hideFeedback();
                 askGeminiButton.style.display = 'none'; // Hide Gemini button
+                optionsContainer.querySelectorAll('.option-button').forEach(button => {
+                    button.classList.remove('disabled'); // 確保所有選項都可點擊
+                });
             }
 
             // Clear Gemini modal content
@@ -2006,46 +2015,46 @@
          * @param {string} selectedOriginalLabel - The original label (A, B, C, D) of the selected option.
          */
         async function selectOption(selectedButton, selectedOriginalLabel) {
-            // If there is already an answer, do not allow re-selection
-            if (userAnswers[currentQuestionIndex]) {
-                console.log(`selectOption: Question ${currentQuestionIndex + 1} already answered. Skipping.`);
-                return;
-            }
-
             const buttons = optionsContainer.querySelectorAll('.option-button');
-            buttons.forEach(button => {
-                button.classList.remove('selected');
-                button.classList.add('disabled'); // Disable all options
-            });
-
-            selectedButton.classList.add('selected');
-
             const questionData = selectedQuizData[currentQuestionIndex];
             const correctOptionLabel = questionData.answer; // Original label of the correct answer (e.g., 'C')
-            
-            // Get the actual content of the correct answer based on the original label
             const correctOptionContent = questionData.options[optionLabels.indexOf(correctOptionLabel)];
 
-            // Check if the original label of the selected option matches the original label of the correct answer
-            const isCorrect = (selectedOriginalLabel === correctOptionLabel);
+            // Step 1: 清除所有選項的視覺狀態
+            buttons.forEach(button => {
+                button.classList.remove('selected', 'correct', 'incorrect');
+                // 在正式考試模式下，不禁用選項
+                if (quizMode === 'practice') {
+                    button.classList.add('disabled'); // 練習模式下禁用所有選項
+                } else {
+                    button.classList.remove('disabled'); // 正式考試模式下保持可點擊
+                }
+            });
 
-            if (isCorrect) {
-                score++; // Increment score if correct
-                console.log(`selectOption: Question ${currentQuestionIndex + 1} correct. Current score: ${score}`);
-            } else {
-                // Record incorrectly answered question (only for internal tracking)
-                incorrectQuestions.push({
-                    question: questionData.question,
-                    selectedOption: selectedOriginalLabel, // Store original label
-                    selectedOptionContent: selectedButton.dataset.optionContent, // Actual content
-                    correctOption: correctOptionLabel, // Original correct label (A, B, C, D)
-                    correctOptionContent: correctOptionContent, // Actual content of the correct option
-                    explanation: questionData.explanation
-                });
-                console.log(`selectOption: Question ${currentQuestionIndex + 1} incorrect. Current score: ${score}, Incorrect questions count: ${incorrectQuestions.length}`);
+            // Step 2: 處理舊答案對分數的影響 (如果存在)
+            if (userAnswers[currentQuestionIndex]) {
+                if (userAnswers[currentQuestionIndex].isCorrect) {
+                    score--; // 如果舊答案是正確的，則分數減一
+                }
+                // 對於 incorrectQuestions，由於它只在提交時重新計算，這裡不需要特別處理
+                // 或者，如果您希望更精確地追蹤，可以考慮從 incorrectQuestions 中移除舊的錯誤記錄
+                // 但為了簡化邏輯，我們將在 showQuizSummary 時重新計算 incorrectQuestions
             }
 
-            // Store user's answer
+            // Step 3: 標記當前選中的選項
+            selectedButton.classList.add('selected');
+
+            // Step 4: 判斷新選擇的正確性
+            const isCorrect = (selectedOriginalLabel === correctOptionLabel);
+
+            // Step 5: 更新分數
+            if (isCorrect) {
+                score++; // 如果新答案是正確的，則分數加一
+            }
+            console.log(`selectOption: Question ${currentQuestionIndex + 1} answered. Current score: ${score}, Mode: ${quizMode}`);
+
+
+            // Step 6: 儲存使用者答案
             userAnswers[currentQuestionIndex] = {
                 selectedOriginalLabel: selectedOriginalLabel,
                 isCorrect: isCorrect,
@@ -2053,14 +2062,14 @@
                 correctOptionContent: correctOptionContent // Store content of correct option
             };
 
-            // Apply visual feedback and show explanation only in practice mode
+            // Step 7: 根據模式套用視覺回饋和顯示 Gemini 按鈕
             if (quizMode === 'practice') {
                 if (isCorrect) {
                     selectedButton.classList.add('correct');
                 } else {
                     selectedButton.classList.add('incorrect');
                 }
-                // Mark correct answer
+                // 在練習模式下，總是標記正確答案
                 buttons.forEach(button => {
                     if (button.dataset.originalLabelForContent === correctOptionLabel) {
                         button.classList.add('correct');
@@ -2069,7 +2078,7 @@
                 showFeedback(questionData.explanation, isCorrect);
                 askGeminiButton.style.display = 'inline-block'; // Show Gemini button
             } else {
-                // In exam mode, hide feedback and Gemini button
+                // 在正式考試模式下，隱藏回饋和 Gemini 按鈕
                 hideFeedback();
                 askGeminiButton.style.display = 'none';
             }
@@ -2157,6 +2166,29 @@
             quizContent.style.display = 'none';
             quizSummary.classList.add('show');
             timerDisplay.style.display = 'none'; // Hide timer
+
+            // 在交卷時重新計算分數和錯題
+            score = 0;
+            incorrectQuestions = [];
+            selectedQuizData.forEach((questionData, index) => {
+                const userAnswer = userAnswers[index];
+                if (userAnswer) {
+                    const isCorrect = (userAnswer.selectedOriginalLabel === questionData.answer);
+                    if (isCorrect) {
+                        score++;
+                    } else {
+                        incorrectQuestions.push({
+                            question: questionData.question,
+                            selectedOption: userAnswer.selectedOriginalLabel, // Store original label
+                            selectedOptionContent: userAnswer.selectedOptionContent, // Actual content
+                            correctOption: questionData.answer, // Original correct label (A, B, C, D)
+                            correctOptionContent: questionData.options[optionLabels.indexOf(questionData.answer)], // Actual content of the correct option
+                            explanation: questionData.explanation
+                        });
+                    }
+                }
+            });
+
 
             const finalScorePoints = score * POINTS_PER_QUESTION; // Calculate final score
             summaryScoreElement.textContent = `${finalScorePoints} 分`; // Display score
